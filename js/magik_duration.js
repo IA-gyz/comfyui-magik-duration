@@ -261,8 +261,12 @@ function hideAdvanced(node) {
     if (widget.element) widget.element.style.display = showAdvanced ? "" : "none";
   }
   node.setDirtyCanvas?.(true, true);
-  // recalc layout to the new visible widget count
-  node.setSize?.(node.computeSize?.());
+  // recalc layout to the new visible widget count; height only grows to the
+  // minimum, never clamps down a node the user resized taller
+  const min = node.computeSize?.();
+  if (min) {
+    node.setSize?.([min[0], Math.max(node.size?.[1] ?? min[1], min[1])]);
+  }
 }
 
 function wireWidgets(node) {
