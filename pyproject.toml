@@ -1,0 +1,15 @@
+[project]
+name = "comfyui-magik-duration"
+description = "Magik Duration: pick a length in seconds, get the frame count your video model accepts (H3, Wan, Hunyuan, LTX patterns, custom formulas)."
+version = "1.0.0"
+license = { text = "MIT" }
+authors = [{ name = "IA-gyz" }]
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/IA-gyz/comfyui-magik-duration"
+
+[tool.comfy]
+PublisherId = "ia-gyz"
+DisplayName = "Magik Duration"
+Icons = []
