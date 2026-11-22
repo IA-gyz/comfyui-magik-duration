@@ -7,7 +7,7 @@
 // What it adds on top of the plain widgets:
 //   - a recipe dropdown that COPIES its numbers onto the fps/step/plus/min
 //     widgets (a picker, not config: saved workflows never change retroactively)
-//   - quick duration chips (default 3/5/10 s, double-click the row to edit)
+//   - quick duration chips (default 3/5/10 s; the gear opens a settings panel)
 //   - a live preview line: "5 s → 124 frames (really 5.17 s)" before you run
 //
 // The maths here is a mirror of duration_helpers.py: same clamps, same
@@ -135,6 +135,21 @@ function injectCSS() {
     }
     .magik-duration-preview .magik-dim { color: rgba(255,255,255,0.42); }
     .magik-duration-preview .magik-warn { color: #e8694a; }
+    .magik-dur-panel { position: fixed; z-index: 10010; width: 300px; max-width: 94vw; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 10px; box-shadow: 0 18px 50px rgba(0,0,0,0.6); color: #d8d8d8; font: 12px 'Segoe UI', sans-serif; }
+    .magik-dur-head { display: flex; align-items: center; padding: 8px 10px; background: #232323; border-bottom: 1px solid #333; }
+    .magik-dur-head b { color: var(--magik-acc, #f66744); font-weight: 600; }
+    .magik-dur-x { margin-left: auto; cursor: pointer; color: #8a8a8a; padding: 0 4px; }
+    .magik-dur-x:hover { color: #fff; }
+    .magik-dur-body { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+    .magik-dur-lab { font-size: 11px; color: #8a8a8a; margin-bottom: 4px; }
+    .magik-dur-recipes { display: flex; flex-wrap: wrap; gap: 4px; }
+    .magik-dur-recipes button { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14); border-radius: 4px; color: rgba(255,255,255,0.72); font-size: 12px; padding: 4px 8px; cursor: pointer; }
+    .magik-dur-recipes button:hover { border-color: var(--magik-acc, #f66744); color: #ddd; }
+    .magik-dur-recipes button.on { background: var(--magik-acc, #f66744); border-color: var(--magik-acc, #f66744); color: #fff; }
+    .magik-dur-rule { height: 1px; background: #333; }
+    .magik-dur-chips-input { width: 100%; box-sizing: border-box; background: #1d1d1d; border: 1px solid #444; border-radius: 4px; padding: 6px 8px; color: #e0e0e0; font: 12px monospace; outline: none; }
+    .magik-dur-chips-input:focus { border-color: var(--magik-acc, #f66744); }
+    .magik-dur-chips-input.bad { border-color: #e8694a; }
   `;
   document.head.appendChild(style);
 }
@@ -184,47 +199,203 @@ function addChipsWidget(node) {
     }
     const gear = document.createElement("button");
     gear.className = "magik-gear";
-    gear.title = "Edit recipe and quick durations";
+    gear.title = "Duration settings";
     gear.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/></svg>';
     gear.addEventListener("click", (e) => {
       e.preventDefault(); e.stopPropagation();
-      askSettings(node, render);
+      openSettingsPanel(node);
     });
     element.appendChild(gear);
   };
   element.addEventListener("dblclick", (e) => {
     e.preventDefault(); e.stopPropagation();
-    askSettings(node, render);
+    openSettingsPanel(node);
   });
   widget.renderChips = render;
   render();
   return widget;
 }
 
-function askSettings(node, onChange) {
-  const allRecipes = [...Object.keys(RECIPES), "Custom formula", "Manual"];
-  const current = `${widgetValues(node).recipe}; ${chipsFor(node).join(", ")}`;
-  const text = window.prompt(
-    `Recipe; quick durations (seconds, comma separated)\nRecipes: ${allRecipes.join(", ")}`,
-    current
-  );
-  if (text === null) return;
-  const sep = text.indexOf(";");
-  const recipePart = sep >= 0 ? text.slice(0, sep).trim() : "";
-  const chipsPart = sep >= 0 ? text.slice(sep + 1) : "";
-  if (recipePart && allRecipes.includes(recipePart)) {
-    setWidgetValue(node, "recipe", recipePart);
+// ── settings panel (gear) ──
+// One panel, two separate sections: a recipe picker and a quick-durations
+// field. Replaces the old combined window.prompt.
+
+const ALL_RECIPES = [...Object.keys(RECIPES), "Custom formula", "Manual"];
+
+let _panel = null;
+let _panelNode = null;
+
+function parseChips(text) {
+  return String(text || "").split(",")
+    .map((s) => parseFloat(s.trim()))
+    .filter((v) => Number.isFinite(v) && v > 0);
+}
+
+function outsideClosePanel(e) {
+  if (!_panel) return;
+  if (_panel.contains(e.target)) return;
+  if (e.target.closest?.(".magik-gear")) return;
+  closeSettingsPanel();
+}
+
+function escClosePanel(e) {
+  if (e.key === "Escape" && _panel) {
+    e.stopPropagation();
+    closeSettingsPanel();
   }
-  if (sep >= 0) {
-    const list = chipsPart.split(",")
-      .map((s) => parseFloat(s.trim()))
-      .filter((v) => Number.isFinite(v) && v > 0);
+}
+
+function closeSettingsPanel() {
+  if (_panel && _panelNode && _panel._chipsInput) {
+    const list = parseChips(_panel._chipsInput.value);
     if (list.length) {
-      node.properties = node.properties || {};
-      node.properties.magik_duration_chips = list;
+      _panelNode.properties = _panelNode.properties || {};
+      _panelNode.properties.magik_duration_chips = list;
+      repaintExtras(_panelNode);
     }
   }
-  onChange();
+  document.removeEventListener("pointerdown", outsideClosePanel, true);
+  document.removeEventListener("keydown", escClosePanel, true);
+  try { _panel?.remove(); } catch {}
+  _panel = null;
+  _panelNode = null;
+}
+
+function nodeScreenRect(node) {
+  if (node.id != null) {
+    const el = document.querySelector(`[data-node-id="${node.id}"]`);
+    if (el) return el.getBoundingClientRect();
+  }
+  const c = app.canvas;
+  if (c?.ds && c?.canvas && node.pos && node.size) {
+    const cr = c.canvas.getBoundingClientRect();
+    const titleH = window.LiteGraph?.NODE_TITLE_HEIGHT || 30;
+    const sc = c.ds.scale || 1;
+    const off = c.ds.offset || [0, 0];
+    const left = cr.left + (node.pos[0] + off[0]) * sc;
+    const top = cr.top + (node.pos[1] - titleH + off[1]) * sc;
+    return { left, top, right: left + node.size[0] * sc, bottom: top + (node.size[1] + titleH) * sc, width: node.size[0] * sc, height: (node.size[1] + titleH) * sc };
+  }
+  return null;
+}
+
+function placeBeside(panel, rect) {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const mw = panel.offsetWidth, mh = panel.offsetHeight;
+  const gap = 12, pad = 8;
+  if (!rect) {
+    panel.style.left = Math.max(pad, (vw - mw) / 2) + "px";
+    panel.style.top = Math.max(pad, (vh - mh) / 2) + "px";
+    return;
+  }
+  let left = rect.right + gap;
+  if (left + mw > vw - pad) left = rect.left - gap - mw;
+  if (left < pad) left = Math.max(pad, vw - mw - pad);
+  let top = rect.top;
+  if (top + mh > vh - pad) top = vh - mh - pad;
+  if (top < pad) top = pad;
+  panel.style.left = left + "px";
+  panel.style.top = top + "px";
+}
+
+function openSettingsPanel(node) {
+  if (_panelNode === node && _panel?.isConnected) {
+    closeSettingsPanel();
+    return;
+  }
+  closeSettingsPanel();
+
+  const panel = document.createElement("div");
+  panel.className = "magik-dur-panel";
+  panel.addEventListener("pointerdown", (e) => e.stopPropagation());
+
+  const head = document.createElement("div");
+  head.className = "magik-dur-head";
+  const title = document.createElement("b");
+  title.textContent = "Magik Duration";
+  const x = document.createElement("span");
+  x.className = "magik-dur-x";
+  x.textContent = "✕";
+  x.title = "Close";
+  x.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeSettingsPanel();
+  });
+  head.append(title, x);
+
+  const body = document.createElement("div");
+  body.className = "magik-dur-body";
+
+  const recipeSec = document.createElement("div");
+  const recipeLab = document.createElement("div");
+  recipeLab.className = "magik-dur-lab";
+  recipeLab.textContent = "Recipe (copies fps/step/plus/min-frames onto the node)";
+  const recipesEl = document.createElement("div");
+  recipesEl.className = "magik-dur-recipes";
+  recipeSec.append(recipeLab, recipesEl);
+
+  const rule = document.createElement("div");
+  rule.className = "magik-dur-rule";
+
+  const chipsSec = document.createElement("div");
+  const chipsLab = document.createElement("div");
+  chipsLab.className = "magik-dur-lab";
+  chipsLab.textContent = "Quick durations (seconds, comma separated)";
+  const input = document.createElement("input");
+  input.className = "magik-dur-chips-input";
+  input.type = "text";
+  input.value = chipsFor(node).join(", ");
+  input.spellcheck = false;
+  chipsSec.append(chipsLab, input);
+
+  body.append(recipeSec, rule, chipsSec);
+  panel.append(head, body);
+  panel._chipsInput = input;
+
+  const paintRecipes = () => {
+    recipesEl.textContent = "";
+    for (const name of ALL_RECIPES) {
+      const b = document.createElement("button");
+      b.className = widgetValues(node).recipe === name ? "on" : "";
+      b.textContent = name;
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setWidgetValue(node, "recipe", name);
+        paintRecipes();
+      });
+      recipesEl.appendChild(b);
+    }
+  };
+  paintRecipes();
+
+  const commit = () => {
+    const list = parseChips(input.value);
+    if (!list.length) {
+      input.classList.add("bad");
+      return false;
+    }
+    input.classList.remove("bad");
+    node.properties = node.properties || {};
+    node.properties.magik_duration_chips = list;
+    repaintExtras(node);
+    return true;
+  };
+  input.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter") {
+      commit();
+      closeSettingsPanel();
+    }
+  });
+  input.addEventListener("blur", commit);
+
+  document.body.appendChild(panel);
+  placeBeside(panel, nodeScreenRect(node));
+  _panel = panel;
+  _panelNode = node;
+  document.addEventListener("pointerdown", outsideClosePanel, true);
+  document.addEventListener("keydown", escClosePanel, true);
+  input.focus?.();
 }
 
 function addPreviewWidget(node) {
@@ -405,6 +576,12 @@ app.registerExtension({
       hideAdvanced(this);
       queueMicrotask(() => { repaintExtras(this); hideAdvanced(this); });
       return r;
+    };
+
+    const _removed = nodeType.prototype.onRemoved;
+    nodeType.prototype.onRemoved = function () {
+      if (_panelNode === this) closeSettingsPanel();
+      return _removed?.apply(this, arguments);
     };
   },
 });
