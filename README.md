@@ -35,9 +35,10 @@ at 24 fps becomes 124 frames** for MiniMax H3, which is really 5.17 s.
 
 ## Modes
 
-- **Recipe dropdown**: copies the model's fps/step/plus/min-frames onto the
-  node so a saved workflow never changes retroactively. Picking a recipe is a
-  starting point, not a live link.
+- **Recipe**: copies the model's fps/step/plus/min-frames onto the
+  node so a saved workflow never changes retroactively. Pick one from the gear
+  prompt on the node (or set the `recipe` widget via API); it is a starting
+  point, not a live link.
 - **Manual**: edit the numbers yourself for a model that is not listed.
 - **Custom formula**: write your own expression, e.g. `(a * fps / 4 + 1) * 4
   + 1`. Uses the same safe evaluator (simpleeval) and function allow-list as
@@ -48,13 +49,15 @@ at 24 fps becomes 124 frames** for MiniMax H3, which is really 5.17 s.
 ## Frontend extras (js/magik_duration.js)
 
 - Quick duration chips in the style of Pixaroma's Duration node (default
-  3/5/10 s; click the gear or double-click the row to edit your own list).
+  3/5/10 s; click the gear or double-click the row to edit the recipe and your
+  own chip list).
 - A live preview line in the same style: "5 s → 124 frames (really 5.17 s)",
   with the true length dimmed when snapping changed it.
-- The fps/step/plus/min-frames widgets stay hidden behind the recipe dropdown,
-  and appear automatically when you pick Manual or Custom formula. Editing a
-  raw number by hand flips the recipe back to Manual so the dropdown never
-  lies about what will run.
+- The Python widgets (recipe, seconds, fps, step, plus, min-frames, formula)
+  are hidden on the canvas: the chips set seconds, and the gear edits the
+  recipe and the chip list. fps/step/plus/min-frames/formula only appear for
+  Manual or Custom formula, where they must be editable. Hidden widgets still
+  save their values, so nothing changes for scripts or the API.
 
 Everything is plain widgets, so workflows driven by scripts or the API work
 with no browser at all.
