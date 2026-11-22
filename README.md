@@ -49,10 +49,10 @@ at 24 fps becomes 124 frames** for MiniMax H3, which is really 5.17 s.
 ## Frontend extras (js/magik_duration.js)
 
 - Quick duration chips in the style of Pixaroma's Duration node (default
-  3/5/10 s); the row stretches vertically to fill the node when you resize it
-  taller. Click the gear (or double-click the chips row) to open a settings
-  panel with two separate sections: a recipe picker and a quick-durations
-  field.
+  3/5/10 s), pinned to the bottom of the node and stretched to fill the whole
+  space below the readout. Click the gear (or double-click the chips row) to
+  open a settings panel with two separate sections: a recipe picker and a
+  quick-durations field.
 - A live preview line in the same style: "5 s → 124 frames (really 5.17 s)",
   with the true length dimmed when snapping changed it.
 - The Python widgets (recipe, seconds, fps, step, plus, min-frames, formula)

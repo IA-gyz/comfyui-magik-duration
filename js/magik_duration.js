@@ -596,8 +596,8 @@ app.registerExtension({
       const r = _created?.apply(this, arguments);
       wireWidgets(this);
       this._magikExtras = true;
-      addChipsWidget(this);
       addPreviewWidget(this);
+      addChipsWidget(this);
       hideAdvanced(this);
       queueMicrotask(() => { repaintExtras(this); hideAdvanced(this); });
       return r;
