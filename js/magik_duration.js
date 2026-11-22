@@ -184,35 +184,46 @@ function addChipsWidget(node) {
     }
     const gear = document.createElement("button");
     gear.className = "magik-gear";
-    gear.title = "Edit the quick durations";
+    gear.title = "Edit recipe and quick durations";
     gear.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/></svg>';
     gear.addEventListener("click", (e) => {
       e.preventDefault(); e.stopPropagation();
-      askChips(node, render);
+      askSettings(node, render);
     });
     element.appendChild(gear);
   };
   element.addEventListener("dblclick", (e) => {
     e.preventDefault(); e.stopPropagation();
-    askChips(node, render);
+    askSettings(node, render);
   });
   widget.renderChips = render;
   render();
   return widget;
 }
 
-function askChips(node, onChange) {
-  const current = chipsFor(node).join(", ");
+function askSettings(node, onChange) {
+  const allRecipes = [...Object.keys(RECIPES), "Custom formula", "Manual"];
+  const current = `${widgetValues(node).recipe}; ${chipsFor(node).join(", ")}`;
   const text = window.prompt(
-    "Quick durations (seconds, comma separated):", current
+    `Recipe; quick durations (seconds, comma separated)\nRecipes: ${allRecipes.join(", ")}`,
+    current
   );
   if (text === null) return;
-  const list = text.split(",")
-    .map((s) => parseFloat(s.trim()))
-    .filter((v) => Number.isFinite(v) && v > 0);
-  if (!list.length) return;
-  node.properties = node.properties || {};
-  node.properties.magik_duration_chips = list;
+  const sep = text.indexOf(";");
+  const recipePart = sep >= 0 ? text.slice(0, sep).trim() : "";
+  const chipsPart = sep >= 0 ? text.slice(sep + 1) : "";
+  if (recipePart && allRecipes.includes(recipePart)) {
+    setWidgetValue(node, "recipe", recipePart);
+  }
+  if (sep >= 0) {
+    const list = chipsPart.split(",")
+      .map((s) => parseFloat(s.trim()))
+      .filter((v) => Number.isFinite(v) && v > 0);
+    if (list.length) {
+      node.properties = node.properties || {};
+      node.properties.magik_duration_chips = list;
+    }
+  }
   onChange();
 }
 
@@ -258,7 +269,8 @@ function addPreviewWidget(node) {
 
 function syncRecipeFromNumbers(node, newSeconds) {
   // Selecting a recipe copies its numbers; editing a number by hand flips the
-  // recipe to Manual so the dropdown never lies about what will run.
+  // recipe to Manual so the recipe value never lies about what will run.
+  if (node._magikApplying) return;
   const w = widgetValues(node);
   if (w.recipe === "Custom formula" || w.recipe === "Manual") return;
   const r = RECIPES[w.recipe];
@@ -272,18 +284,29 @@ function syncRecipeFromNumbers(node, newSeconds) {
 }
 
 function hideAdvanced(node) {
-  // fps/step/plus/min_frames/formula live behind the recipe dropdown; hide the
-  // raw numbers unless the recipe actually needs them.
+  // The Python widgets stay the source of truth for saved workflows and the
+  // API, but on the canvas the DOM face (chips + gear + readout) replaces
+  // them: recipe and seconds are always hidden, and the raw numbers only show
+  // for Manual / Custom formula, where they must be editable.
   const recipe = widgetValues(node).recipe;
-  const showAdvanced = recipe === "Manual" || recipe === "Custom formula";
-  for (const name of ["fps", "step", "plus", "min_frames", "formula"]) {
+  const advanced = recipe === "Manual" || recipe === "Custom formula";
+  const visible = {
+    recipe: false,
+    seconds: false,
+    fps: advanced,
+    step: advanced,
+    plus: advanced,
+    min_frames: advanced,
+    formula: advanced,
+  };
+  for (const name of Object.keys(visible)) {
     const widget = node.widgets?.find((w) => w.name === name);
     if (!widget) continue;
     if (widget._magikOriginalType === undefined) {
       widget._magikOriginalType = widget.type;
     }
-    widget.type = showAdvanced ? widget._magikOriginalType : "hidden";
-    if (widget.element) widget.element.style.display = showAdvanced ? "" : "none";
+    widget.type = visible[name] ? widget._magikOriginalType : "hidden";
+    if (widget.element) widget.element.style.display = visible[name] ? "" : "none";
   }
   node.setDirtyCanvas?.(true, true);
   // recalc layout to the new visible widget count; height only grows to the
@@ -303,10 +326,12 @@ function wireWidgets(node) {
       orig?.(value);
       const r = RECIPES[value];
       if (r) {
+        node._magikApplying = true;
         setWidgetValue(node, "fps", r.fps);
         setWidgetValue(node, "step", r.step);
         setWidgetValue(node, "plus", r.plus);
         setWidgetValue(node, "min_frames", r.min_frames);
+        node._magikApplying = false;
       }
       hideAdvanced(node);
       repaintExtras(node);
