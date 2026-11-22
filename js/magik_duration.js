@@ -8,7 +8,7 @@
 //   - a recipe dropdown that COPIES its numbers onto the fps/step/plus/min
 //     widgets (a picker, not config: saved workflows never change retroactively)
 //   - quick duration chips (default 3/5/10 s, double-click the row to edit)
-//   - a live preview line: "124 frames · 5.17 s" before you run
+//   - a live preview line: "5 s → 124 frames (really 5.17 s)" before you run
 //
 // The maths here is a mirror of duration_helpers.py: same clamps, same
 // round-half-to-EVEN, same non-negative modulo. Python stays the authority.
@@ -27,6 +27,10 @@ const RECIPES = {
 };
 
 const DEFAULT_CHIPS = [3, 5, 10];
+
+function fmt(value, places = 2) {
+  return String(Math.round(value * 10 ** places) / 10 ** places);
+}
 
 // ── browser mirror of duration_helpers.py ───────────────────────────────────
 
@@ -103,23 +107,34 @@ function injectCSS() {
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
-    .magik-duration-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0; }
-    .magik-duration-chips button {
-      background: var(--comfy-menu-bg, #2a2a2a);
-      color: var(--input-text, #ddd);
-      border: 1px solid var(--border-color, #444);
-      border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer;
+    .magik-duration-chips {
+      display: flex; align-items: center; gap: 4px; padding: 4px 0;
+      flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow: hidden;
     }
-    .magik-duration-chips button.magik-active {
-      background: var(--comfy-input-bg-hover, #4a6);
-      color: #fff; border-color: var(--comfy-input-bg-hover, #4a6);
+    .magik-duration-chips .magik-chip {
+      flex: 1 1 auto; min-width: 28px; box-sizing: border-box;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 4px; color: rgba(255,255,255,0.72);
+      font-size: 12px; padding: 4px 6px; cursor: pointer; text-align: center; line-height: 1.1;
     }
+    .magik-duration-chips .magik-chip:hover { border-color: var(--magik-acc, #f66744); color: #ddd; }
+    .magik-duration-chips .magik-chip.magik-active,
+    .magik-duration-chips .magik-chip.magik-active:hover {
+      background: var(--magik-acc, #f66744); border-color: var(--magik-acc, #f66744); color: #fff;
+    }
+    .magik-duration-chips .magik-gear {
+      flex: none; width: 16px; height: 16px; padding: 0; margin: 0; line-height: 0;
+      background: none; border: none; cursor: pointer; color: #bbb;
+    }
+    .magik-duration-chips .magik-gear:hover { color: var(--magik-acc, #f66744); }
+    .magik-duration-chips .magik-gear svg { display: block; width: 14px; height: 14px; fill: currentColor; }
     .magik-duration-preview {
-      padding: 2px 0 4px 0; font-size: 12px; opacity: 0.85;
-      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+      min-height: 18px; display: flex; align-items: center; gap: 5px;
+      padding: 2px 0 4px 0; font-size: 11px; color: var(--magik-acc, #f66744);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .magik-duration-preview b { font-variant-numeric: tabular-nums; }
-    .magik-duration-preview .magik-warn { color: #e6a23c; }
+    .magik-duration-preview .magik-dim { color: rgba(255,255,255,0.42); }
+    .magik-duration-preview .magik-warn { color: #e8694a; }
   `;
   document.head.appendChild(style);
 }
@@ -157,8 +172,9 @@ function addChipsWidget(node) {
     element.innerHTML = "";
     for (const chip of chips) {
       const btn = document.createElement("button");
-      btn.textContent = chip + " s";
-      if (Math.abs(chip - seconds) < 1e-9) btn.className = "magik-active";
+      btn.className = "magik-chip" + (Math.abs(chip - seconds) < 1e-9 ? " magik-active" : "");
+      btn.textContent = fmt(chip) + "s";
+      btn.title = `Set the length to ${fmt(chip)} s`;
       btn.addEventListener("click", (e) => {
         e.preventDefault(); e.stopPropagation();
         setWidgetValue(node, "seconds", chip);
@@ -166,14 +182,15 @@ function addChipsWidget(node) {
       });
       element.appendChild(btn);
     }
-    const edit = document.createElement("button");
-    edit.textContent = "⋯";
-    edit.title = "Double-click the row, or here: edit the quick durations";
-    edit.addEventListener("dblclick", (e) => {
+    const gear = document.createElement("button");
+    gear.className = "magik-gear";
+    gear.title = "Edit the quick durations";
+    gear.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/></svg>';
+    gear.addEventListener("click", (e) => {
       e.preventDefault(); e.stopPropagation();
       askChips(node, render);
     });
-    element.appendChild(edit);
+    element.appendChild(gear);
   };
   element.addEventListener("dblclick", (e) => {
     e.preventDefault(); e.stopPropagation();
@@ -215,14 +232,22 @@ function addPreviewWidget(node) {
     const picked = parseFloat(w.seconds);
     const custom =
       w.recipe === "Custom formula" && String(w.formula || "").trim() !== "";
-    let html = `<span><b>${frames}</b> frames · <b>${actual.toFixed(2)}</b> s</span>`;
+    element.textContent = "";
+    const main = document.createElement("span");
+    main.textContent = `${fmt(picked)} s → ${frames} frames`;
+    element.appendChild(main);
     if (Math.abs(actual - picked) > 0.005) {
-      html += `<span class="magik-warn">snapped: ${picked} s → ${actual.toFixed(2)} s</span>`;
+      const dim = document.createElement("span");
+      dim.className = "magik-dim";
+      dim.textContent = `(really ${fmt(actual)} s)`;
+      element.appendChild(dim);
     }
     if (custom) {
-      html += `<span class="magik-warn">formula is checked by Python at run time</span>`;
+      const warn = document.createElement("span");
+      warn.className = "magik-warn";
+      warn.textContent = "formula is checked by Python at run time";
+      element.appendChild(warn);
     }
-    element.innerHTML = html;
   };
   widget.renderPreview = render;
   render();

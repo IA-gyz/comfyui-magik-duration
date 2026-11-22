@@ -47,10 +47,10 @@ at 24 fps becomes 124 frames** for MiniMax H3, which is really 5.17 s.
 
 ## Frontend extras (js/magik_duration.js)
 
-- Quick duration chips (default 3/5/10 s; double-click the row to edit your own
-  list).
-- A live preview of the frames and true seconds, with a warning when snapping
-  changed the length.
+- Quick duration chips in the style of Pixaroma's Duration node (default
+  3/5/10 s; click the gear or double-click the row to edit your own list).
+- A live preview line in the same style: "5 s → 124 frames (really 5.17 s)",
+  with the true length dimmed when snapping changed it.
 - The fps/step/plus/min-frames widgets stay hidden behind the recipe dropdown,
   and appear automatically when you pick Manual or Custom formula. Editing a
   raw number by hand flips the recipe back to Manual so the dropdown never
