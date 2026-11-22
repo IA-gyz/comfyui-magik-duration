@@ -108,11 +108,13 @@ function injectCSS() {
   style.id = STYLE_ID;
   style.textContent = `
     .magik-duration-chips {
-      display: flex; align-items: center; gap: 4px; padding: 4px 0;
+      display: flex; align-items: stretch; gap: 4px; padding: 4px 0;
       flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow: hidden;
+      height: 100%; box-sizing: border-box;
     }
     .magik-duration-chips .magik-chip {
       flex: 1 1 auto; min-width: 28px; box-sizing: border-box;
+      display: flex; align-items: center; justify-content: center;
       background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14);
       border-radius: 4px; color: rgba(255,255,255,0.72);
       font-size: 12px; padding: 4px 6px; cursor: pointer; text-align: center; line-height: 1.1;
@@ -124,6 +126,7 @@ function injectCSS() {
     }
     .magik-duration-chips .magik-gear {
       flex: none; width: 16px; height: 16px; padding: 0; margin: 0; line-height: 0;
+      align-self: center;
       background: none; border: none; cursor: pointer; color: #bbb;
     }
     .magik-duration-chips .magik-gear:hover { color: var(--magik-acc, #f66744); }
@@ -180,6 +183,7 @@ function addChipsWidget(node) {
     hideOnZoom: false,
   });
   widget.serializeValue = () => undefined;   // DOM only, never saved in the widget
+  widget.computedHeight = 34;
 
   const render = () => {
     const chips = chipsFor(node);
@@ -407,6 +411,7 @@ function addPreviewWidget(node) {
     hideOnZoom: false,
   });
   widget.serializeValue = () => undefined;
+  widget.computedHeight = 24;
 
   const render = () => {
     const w = widgetValues(node);
@@ -486,6 +491,34 @@ function hideAdvanced(node) {
   if (min) {
     node.setSize?.([min[0], Math.max(node.size?.[1] ?? min[1], min[1])]);
   }
+  stretchChips(node);
+}
+
+// Give the chips row all the height the node has left over, so the time
+// buttons scale in height when the node is resized taller.
+function stretchChips(node) {
+  const widgets = node.widgets || [];
+  const chipsIdx = widgets.findIndex((w) => w.name === "magik_duration_chips");
+  if (chipsIdx < 0 || !Array.isArray(node.size)) return;
+  const chips = widgets[chipsIdx];
+  const el = chips.element;
+  let used = node.widgets_start_y ?? 0;
+  for (const w of widgets) {
+    if (w === chips) break;
+    if (w.type === "hidden") continue;
+    used += w.computedHeight || 30;
+  }
+  for (let i = chipsIdx + 1; i < widgets.length; i++) {
+    if (widgets[i].type === "hidden") continue;
+    used += widgets[i].computedHeight || 30;
+  }
+  const h = Math.max(28, Math.round(node.size[1] - used - 6));
+  chips.computedHeight = h;
+  if (el) {
+    el.style.height = h + "px";
+    el.style.setProperty("--comfy-widget-height", h + "px");
+    el.style.setProperty("--comfy-widget-min-height", "28px");
+  }
 }
 
 function wireWidgets(node) {
@@ -539,8 +572,8 @@ function patchOnDraw(nodeType) {
   let last = null;
   nodeType.prototype.onDrawForeground = function (ctx) {
     if (this._magikExtras) {
-      const key = JSON.stringify(widgetValues(this));
-      if (key !== last) { last = key; repaintExtras(this); }
+      const key = JSON.stringify(widgetValues(this)) + "|" + (this.size?.[0] ?? 0) + "x" + (this.size?.[1] ?? 0);
+      if (key !== last) { last = key; repaintExtras(this); stretchChips(this); }
     }
     return _draw?.apply(this, arguments);
   };
@@ -575,6 +608,13 @@ app.registerExtension({
       const r = _configured?.apply(this, arguments);
       hideAdvanced(this);
       queueMicrotask(() => { repaintExtras(this); hideAdvanced(this); });
+      return r;
+    };
+
+    const _resize = nodeType.prototype.onResize;
+    nodeType.prototype.onResize = function (size) {
+      const r = _resize?.apply(this, arguments);
+      stretchChips(this);
       return r;
     };
 
