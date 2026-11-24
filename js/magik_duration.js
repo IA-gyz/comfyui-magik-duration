@@ -117,7 +117,8 @@ function injectCSS() {
       display: flex; align-items: center; justify-content: center;
       background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14);
       border-radius: 4px; color: rgba(255,255,255,0.72);
-      font-size: 12px; padding: 4px 6px; cursor: pointer; text-align: center; line-height: 1.1;
+      font-size: var(--magik-chip-fs, 12px); padding: 4px 6px; cursor: pointer; text-align: center; line-height: 1.1;
+      white-space: nowrap; overflow: hidden;
     }
     .magik-duration-chips .magik-chip:hover { border-color: var(--magik-acc, #f66744); color: #ddd; }
     .magik-duration-chips .magik-chip.magik-active,
@@ -494,6 +495,10 @@ function hideAdvanced(node) {
   stretchChips(node);
 }
 
+function chipLabelSize(h) {
+  return Math.max(12, Math.min(48, Math.round((h - 8) * 0.5)));
+}
+
 // Give the chips row all the height the node has left over, so the time
 // buttons scale in height when the node is resized taller.
 function stretchChips(node) {
@@ -518,6 +523,7 @@ function stretchChips(node) {
     el.style.height = h + "px";
     el.style.setProperty("--comfy-widget-height", h + "px");
     el.style.setProperty("--comfy-widget-min-height", "28px");
+    el.style.setProperty("--magik-chip-fs", chipLabelSize(h) + "px");
   }
 }
 
