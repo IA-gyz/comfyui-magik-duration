@@ -50,7 +50,8 @@ at 24 fps becomes 124 frames** for MiniMax H3, which is really 5.17 s.
 
 - Quick duration chips in the style of Pixaroma's Duration node (default
   3/5/10 s), pinned to the bottom of the node and stretched to fill the whole
-  space below the readout. Click the gear (or double-click the chips row) to
+  space below the readout, with the labels scaling up with the button height
+  so they fill the buttons. Click the gear (or double-click the chips row) to
   open a settings panel with two separate sections: a recipe picker and a
   quick-durations field.
 - A live preview line in the same style: "5 s → 124 frames (really 5.17 s)",
