@@ -115,12 +115,13 @@ function injectCSS() {
     .magik-duration-chips .magik-chip {
       flex: 1 1 auto; min-width: 28px; box-sizing: border-box;
       display: flex; align-items: center; justify-content: center;
-      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14);
+      background: color-mix(in srgb, var(--magik-acc, #f66744) 18%, transparent);
+      border: 1px solid color-mix(in srgb, var(--magik-acc, #f66744) 42%, transparent);
       border-radius: 4px; color: rgba(255,255,255,0.72);
       font-size: var(--magik-chip-fs, 12px); padding: 4px 6px; cursor: pointer; text-align: center; line-height: 1.1;
       white-space: nowrap; overflow: hidden;
     }
-    .magik-duration-chips .magik-chip:hover { border-color: var(--magik-acc, #f66744); color: #ddd; }
+    .magik-duration-chips .magik-chip:hover { background: color-mix(in srgb, var(--magik-acc, #f66744) 32%, transparent); border-color: var(--magik-acc, #f66744); color: #ddd; }
     .magik-duration-chips .magik-chip.magik-active,
     .magik-duration-chips .magik-chip.magik-active:hover {
       background: var(--magik-acc, #f66744); border-color: var(--magik-acc, #f66744); color: #fff;
@@ -486,11 +487,14 @@ function hideAdvanced(node) {
     if (widget.element) widget.element.style.display = visible[name] ? "" : "none";
   }
   node.setDirtyCanvas?.(true, true);
-  // recalc layout to the new visible widget count; height only grows to the
-  // minimum, never clamps down a node the user resized taller
+  // recalc layout to the new visible widget count; width and height only
+  // grow to the minimum, never clamp down a node the user resized, so the
+  // saved size survives reloads and tab switches
   const min = node.computeSize?.();
   if (min) {
-    node.setSize?.([min[0], Math.max(node.size?.[1] ?? min[1], min[1])]);
+    const w = Math.max(node.size?.[0] ?? min[0], min[0]);
+    const h = Math.max(node.size?.[1] ?? min[1], min[1]);
+    node.setSize?.([w, h]);
   }
   stretchChips(node);
 }
