@@ -108,17 +108,17 @@ function injectCSS() {
   style.id = STYLE_ID;
   style.textContent = `
     .magik-duration-chips {
-      display: flex; align-items: stretch; gap: 4px; padding: 2px 0;
+      position: relative; display: flex; align-items: stretch; gap: 4px; padding: 2px 22px 2px 2px;
       flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow: hidden;
       height: 100%; box-sizing: border-box;
     }
     .magik-duration-chips .magik-chip {
-      flex: 1 1 0; min-width: 0; box-sizing: border-box;
+      min-width: 0; min-height: 0; box-sizing: border-box;
       display: flex; align-items: center; justify-content: center;
       background: color-mix(in srgb, var(--magik-acc, #f66744) 18%, transparent);
       border: 1px solid color-mix(in srgb, var(--magik-acc, #f66744) 42%, transparent);
       border-radius: 4px; color: rgba(255,255,255,0.72);
-      font-size: var(--magik-chip-fs, 12px); padding: 2px 4px; cursor: pointer; text-align: center; line-height: 1.1;
+      font-size: 12px; padding: 2px 4px; cursor: pointer; text-align: center; line-height: 1.1;
       white-space: nowrap; overflow: hidden;
     }
     .magik-duration-chips .magik-chip:hover { background: color-mix(in srgb, var(--magik-acc, #f66744) 32%, transparent); border-color: var(--magik-acc, #f66744); color: #ddd; }
@@ -127,8 +127,8 @@ function injectCSS() {
       background: var(--magik-acc, #f66744); border-color: var(--magik-acc, #f66744); color: #fff;
     }
     .magik-duration-chips .magik-gear {
-      flex: none; width: 16px; height: 16px; padding: 0; margin: 0; line-height: 0;
-      align-self: center;
+      position: absolute; right: 3px; top: 50%; transform: translateY(-50%);
+      width: 16px; height: 16px; padding: 0; margin: 0; line-height: 0;
       background: none; border: none; cursor: pointer; color: #bbb;
     }
     .magik-duration-chips .magik-gear:hover { color: var(--magik-acc, #f66744); }
@@ -185,7 +185,10 @@ function addChipsWidget(node) {
     hideOnZoom: false,
   });
   widget.serializeValue = () => undefined;   // DOM only, never saved in the widget
-  widget.computedHeight = 34;
+  widget.computedHeight = 28;
+  // row sizing read by the frontend's widget grid: minimum only, no maximum,
+  // so this row absorbs all the free space the node has left over
+  element.style.setProperty("--comfy-widget-min-height", "28px");
 
   const render = () => {
     const chips = chipsFor(node);
@@ -415,6 +418,11 @@ function addPreviewWidget(node) {
   });
   widget.serializeValue = () => undefined;
   widget.computedHeight = 16;
+  // fixed 16px row: min = max, so the grid gives this row exactly its height
+  // and hands the rest of the node to the chips row below it
+  element.style.setProperty("--comfy-widget-min-height", "16px");
+  element.style.setProperty("--comfy-widget-max-height", "16px");
+  element.style.setProperty("--comfy-widget-height", "16px");
 
   const render = () => {
     const w = widgetValues(node);
@@ -486,6 +494,7 @@ function hideAdvanced(node) {
       widget._magikSavedHeight = widget.computedHeight || 30;
     }
     widget.type = visible[name] ? widget._magikOriginalType : "hidden";
+    widget.hidden = !visible[name];
     widget.computedHeight = visible[name] ? widget._magikSavedHeight : 0;
     if (widget.element) widget.element.style.display = visible[name] ? "" : "none";
   }
@@ -502,18 +511,24 @@ function hideAdvanced(node) {
   stretchChips(node);
 }
 
-// Largest label that fits the button height: the row has 2px padding top and
-// bottom and each chip adds 2px padding + 1px border per side, leaving
-// h - 10 px for the 1.1 line box.
-function chipLabelSize(h) {
-  return Math.max(10, Math.floor((h - 10) / 1.1));
-}
-
-// Shrink each label just enough that it never spills out of its button:
-// vertically the row-height size above already fits, horizontally the font
-// is scaled down until the text fits the chip's width.
+// Lay the chips out as a grid of near-square tiles that fills the whole row,
+// then size each label to the largest font that fits inside its own button:
+// vertically (line box must fit the button height) and horizontally (text
+// width must fit the button width), so labels fill the buttons without
+// ever spilling out of them.
 function fitChips(el) {
-  for (const btn of el.querySelectorAll(".magik-chip")) {
+  const chips = [...el.querySelectorAll(".magik-chip")];
+  const n = chips.length;
+  const w = el.clientWidth - 24;   // minus the row's horizontal padding
+  const h = el.clientHeight - 4;   // minus the row's vertical padding
+  if (n && w > 20 && h > 20) {
+    const cols = Math.max(1, Math.min(n, Math.round(Math.sqrt((n * w) / h))));
+    const rows = Math.ceil(n / cols);
+    el.style.display = "grid";
+    el.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    el.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+  }
+  for (const btn of chips) {
     btn.style.fontSize = "";
     const cs = getComputedStyle(btn);
     const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
@@ -527,42 +542,30 @@ function fitChips(el) {
   }
 }
 
-// Give the chips row all the height the node has left over, so the time
-// buttons scale in height when the node is resized taller.
+// Give the chips row all the height the node has left over, so the buttons
+// fill the panel below the readout and grow when the node is resized taller.
 function stretchChips(node) {
   const widgets = node.widgets || [];
   const chipsIdx = widgets.findIndex((w) => w.name === "magik_duration_chips");
   if (chipsIdx < 0 || !Array.isArray(node.size)) return;
   const chips = widgets[chipsIdx];
   const el = chips.element;
-  let h = null;
-  const rect = nodeScreenRect(node);
-  const scale = app.canvas?.ds?.scale || 0;
-  const elRect = el?.getBoundingClientRect?.();
-  if (rect && scale > 0 && elRect && elRect.top > rect.top) {
-    const avail = (rect.bottom - elRect.top) / scale - 4;
-    if (Number.isFinite(avail) && avail > 0) h = Math.round(avail);
+  let used = node.widgets_start_y ?? 30;
+  for (const w of widgets) {
+    if (w === chips) break;
+    if (w.type === "hidden" || w.hidden) continue;
+    used += w.computedHeight || 30;
   }
-  if (h === null) {
-    let used = node.widgets_start_y ?? 0;
-    for (const w of widgets) {
-      if (w === chips) break;
-      if (w.type === "hidden") continue;
-      used += w.computedHeight || 30;
-    }
-    for (let i = chipsIdx + 1; i < widgets.length; i++) {
-      if (widgets[i].type === "hidden") continue;
-      used += widgets[i].computedHeight || 30;
-    }
-    h = Math.round(node.size[1] - used - 4);
+  for (let i = chipsIdx + 1; i < widgets.length; i++) {
+    if (widgets[i].type === "hidden" || widgets[i].hidden) continue;
+    used += widgets[i].computedHeight || 30;
   }
-  h = Math.max(28, Math.min(h, Math.round(node.size[1])));
+  const h = Math.max(28, Math.min(Math.round(node.size[1] - used - 4), Math.round(node.size[1])));
   chips.computedHeight = h;
   if (el) {
     el.style.height = h + "px";
     el.style.setProperty("--comfy-widget-height", h + "px");
     el.style.setProperty("--comfy-widget-min-height", "28px");
-    el.style.setProperty("--magik-chip-fs", chipLabelSize(h) + "px");
     fitChips(el);
   }
 }
