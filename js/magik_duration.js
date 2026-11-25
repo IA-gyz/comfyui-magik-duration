@@ -28,6 +28,20 @@ const RECIPES = {
 
 const DEFAULT_CHIPS = [3, 5, 10];
 
+// Minimum height of the chips row. In Vue nodes the node auto-sizes to its
+// content, so this minimum is what makes the buttons occupy most of the node;
+// when the user resizes the node taller, the leftover height goes to the
+// growable chips row automatically.
+const CHIPS_MIN_H = 220;
+
+// In Vue nodes (Nodes 2.0) the widget grid owns widget row heights and
+// derives computedHeight from the measured DOM, so extensions must not write
+// heights back from node.size (that creates a grow/shrink feedback loop);
+// they only declare min/max through the --comfy-widget-* CSS vars.
+function isVueNodesMode() {
+  return !!(window.LiteGraph?.vueNodesMode ?? app.canvas?.vueNodesMode);
+}
+
 function fmt(value, places = 2) {
   return String(Math.round(value * 10 ** places) / 10 ** places);
 }
@@ -185,10 +199,15 @@ function addChipsWidget(node) {
     hideOnZoom: false,
   });
   widget.serializeValue = () => undefined;   // DOM only, never saved in the widget
-  widget.computedHeight = 28;
+  widget.computedHeight = CHIPS_MIN_H;
   // row sizing read by the frontend's widget grid: minimum only, no maximum,
   // so this row absorbs all the free space the node has left over
-  element.style.setProperty("--comfy-widget-min-height", "28px");
+  element.style.setProperty("--comfy-widget-min-height", CHIPS_MIN_H + "px");
+  // re-fit the grid and labels whenever the row itself is resized (the widget
+  // grid reallocates it when the node is resized in Vue mode)
+  if (typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(() => fitChips(element)).observe(element);
+  }
 
   const render = () => {
     const chips = chipsFor(node);
@@ -501,12 +520,15 @@ function hideAdvanced(node) {
   node.setDirtyCanvas?.(true, true);
   // recalc layout to the new visible widget count; width and height only
   // grow to the minimum, never clamp down a node the user resized, so the
-  // saved size survives reloads and tab switches
-  const min = node.computeSize?.();
-  if (min) {
-    const w = Math.max(node.size?.[0] ?? min[0], min[0]);
-    const h = Math.max(node.size?.[1] ?? min[1], min[1]);
-    node.setSize?.([w, h]);
+  // saved size survives reloads and tab switches. In Vue nodes the frontend
+  // manages the node size from the measured DOM, so leave it alone there.
+  if (!isVueNodesMode()) {
+    const min = node.computeSize?.();
+    if (min) {
+      const w = Math.max(node.size?.[0] ?? min[0], min[0]);
+      const h = Math.max(node.size?.[1] ?? min[1], min[1]);
+      node.setSize?.([w, h]);
+    }
   }
   stretchChips(node);
 }
@@ -542,14 +564,22 @@ function fitChips(el) {
   }
 }
 
-// Give the chips row all the height the node has left over, so the buttons
-// fill the panel below the readout and grow when the node is resized taller.
+// Keep the buttons filling the panel below the readout. In Vue nodes the
+// widget grid allocates the row height from the CSS vars alone, so there we
+// only re-fit the grid/labels (the ResizeObserver does that on row resizes).
+// In classic canvas mode the row height comes from computedHeight, so we
+// stretch it to the node's leftover height there (no DOM-measured feedback
+// loop exists in that mode, so deriving it from node.size is safe).
 function stretchChips(node) {
   const widgets = node.widgets || [];
   const chipsIdx = widgets.findIndex((w) => w.name === "magik_duration_chips");
   if (chipsIdx < 0 || !Array.isArray(node.size)) return;
   const chips = widgets[chipsIdx];
   const el = chips.element;
+  if (isVueNodesMode()) {
+    if (el) fitChips(el);
+    return;
+  }
   let used = node.widgets_start_y ?? 30;
   for (const w of widgets) {
     if (w === chips) break;
@@ -560,12 +590,11 @@ function stretchChips(node) {
     if (widgets[i].type === "hidden" || widgets[i].hidden) continue;
     used += widgets[i].computedHeight || 30;
   }
-  const h = Math.max(28, Math.min(Math.round(node.size[1] - used - 4), Math.round(node.size[1])));
+  const h = Math.max(CHIPS_MIN_H, Math.min(Math.round(node.size[1] - used - 4), Math.round(node.size[1])));
   chips.computedHeight = h;
   if (el) {
     el.style.height = h + "px";
-    el.style.setProperty("--comfy-widget-height", h + "px");
-    el.style.setProperty("--comfy-widget-min-height", "28px");
+    el.style.setProperty("--comfy-widget-min-height", h + "px");
     fitChips(el);
   }
 }

@@ -50,11 +50,13 @@ at 24 fps becomes 124 frames** for MiniMax H3, which is really 5.17 s.
 
 - Quick duration chips in the style of Pixaroma's Duration node (default
   3/5/10 s), pinned to the bottom of the node. The readout row is pinned to a
-  minimal 16px and the chips row takes all the remaining height, laid out as a
-  grid of near-square buttons that fills the node; each label grows to the
-  largest size that still fits inside its own button (height and width). Click
-  the gear (or double-click the chips row) to open a settings panel with two
-  separate sections: a recipe picker and a quick-durations field.
+  minimal 16px and the chips row takes all the remaining height (row sizes are
+  declared through the frontend's --comfy-widget-* vars, so the layout is
+  stable across reloads), laid out as a grid of near-square buttons that fills
+  the node; each label grows to the largest size that still fits inside its own
+  button (height and width). Click the gear (or double-click the chips row) to
+  open a settings panel with two separate sections: a recipe picker and a
+  quick-durations field.
 - A live preview line in the same style: "5 s → 124 frames (really 5.17 s)",
   with the true length dimmed when snapping changed it.
 - The Python widgets (recipe, seconds, fps, step, plus, min-frames, formula)
