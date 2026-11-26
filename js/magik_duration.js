@@ -13,11 +13,17 @@
 // The maths here is a mirror of duration_helpers.py: same clamps, same
 // round-half-to-EVEN, same non-negative modulo. Python stays the authority.
 
+// The frame maths lives in duration_math.js (a pure mirror of
+// duration_helpers.py, parity-tested against it). Python stays the authority.
+
 import { app } from "../../scripts/app.js";
+import { num, framesFromSeconds } from "./duration_math.js";
 
 const CLASS = "MagikDuration";
 const STYLE_ID = "magik-duration-style";
 
+// Mirror of RECIPES in magik_duration.py. tests/test_parity.py fails if the
+// two tables (or the README's) ever drift apart.
 const RECIPES = {
   "MiniMax H3": { fps: 24, step: 17, plus: 5, min_frames: 5 },
   "Wan 2.x": { fps: 16, step: 4, plus: 1, min_frames: 1 },
@@ -26,72 +32,23 @@ const RECIPES = {
   "Plain frames": { fps: 24, step: 1, plus: 0, min_frames: 1 },
 };
 
-const DEFAULT_CHIPS = [3, 5, 10];
-
-// Minimum height of the chips row. In Vue nodes the node auto-sizes to its
-// content, so this minimum is what makes the buttons occupy most of the node;
-// when the user resizes the node taller, the leftover height goes to the
-// growable chips row automatically.
-const CHIPS_MIN_H = 220;
-
-// In Vue nodes (Nodes 2.0) the widget grid owns widget row heights and
-// derives computedHeight from the measured DOM, so extensions must not write
-// heights back from node.size (that creates a grow/shrink feedback loop);
-// they only declare min/max through the --comfy-widget-* CSS vars.
-function isVueNodesMode() {
-  return !!(window.LiteGraph?.vueNodesMode ?? app.canvas?.vueNodesMode);
+// The dropdown's own list (set by Python) is the source for the panel's names.
+function recipeNames(node) {
+  const values = node.widgets?.find((w) => w.name === "recipe")?.options?.values;
+  const list = typeof values === "function" ? values() : values;
+  return Array.isArray(list) ? list : [...Object.keys(RECIPES), "Custom formula", "Manual"];
 }
+
+const DEFAULT_CHIPS = [3, 5, 10];
 
 function fmt(value, places = 2) {
   return String(Math.round(value * 10 ** places) / 10 ** places);
 }
 
-// ── browser mirror of duration_helpers.py ───────────────────────────────────
-
-function mod(value, n) { return ((value % n) + n) % n; }
-
-function num(value, fallback, lo, hi) {
-  const out = typeof value === "number" ? value : parseFloat(value);
-  if (!Number.isFinite(out)) return fallback;
-  return Math.max(lo, Math.min(hi, out));
-}
-
-// Python's round() is banker's rounding: round(2.5) is 2, Math.round gives 3.
-function pyRound(value) {
-  const floor = Math.floor(value);
-  const diff = value - floor;
-  if (diff > 0.5) return floor + 1;
-  if (diff < 0.5) return floor;
-  return floor % 2 === 0 ? floor : floor + 1;
-}
-
-function snapFrames(raw, step, plus) {
-  step = Math.trunc(step); plus = Math.trunc(plus); raw = Math.trunc(raw);
-  if (step <= 1) return raw;
-  const remainder = mod(raw - plus, step);
-  return remainder ? raw + (step - remainder) : raw;
-}
-
-function framesFromSeconds(seconds, fps, step, plus, minFrames) {
-  seconds = num(seconds, 5, -100000, 100000);
-  fps = num(fps, 24, 0, 1000);
-  step = Math.trunc(num(step, 17, 0, 100000));
-  plus = Math.trunc(num(plus, 5, 0, 100000));
-  minFrames = Math.trunc(num(minFrames, 5, 0, 1000000));
-  let raw = pyRound(seconds * fps);
-  if (raw < minFrames) raw = minFrames;
-  raw = snapFrames(raw, step, plus);
-  return Math.max(0, Math.min(1000000, raw));
-}
-
-/** The frames Python would send, from the node's widget values. */
+/** The frames Python would send from the recipe numbers on the node. */
 function previewFrames(node) {
   const w = widgetValues(node);
-  const frames = framesFromSeconds(
-    w.seconds, w.fps, w.step, w.plus, w.min_frames
-  );
-  const fps = num(w.fps, 24, 0, 1000);
-  return { frames, actual: fps > 0 ? frames / fps : 0 };
+  return framesFromSeconds(w.seconds, w.fps, w.step, w.plus, w.min_frames);
 }
 
 function widgetValues(node) {
@@ -121,6 +78,8 @@ function injectCSS() {
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
+    /* --magik-acc is an optional suite-wide accent; this is its one fallback */
+    .magik-duration-chips, .magik-duration-preview, .magik-dur-panel { --magik-dur-acc: var(--magik-acc, #f66744); }
     .magik-duration-chips {
       position: relative; display: flex; align-items: stretch; gap: 4px; padding: 2px 22px 2px 2px;
       flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow: hidden;
@@ -129,45 +88,45 @@ function injectCSS() {
     .magik-duration-chips .magik-chip {
       min-width: 0; min-height: 0; box-sizing: border-box;
       display: flex; align-items: center; justify-content: center;
-      background: color-mix(in srgb, var(--magik-acc, #f66744) 18%, transparent);
-      border: 1px solid color-mix(in srgb, var(--magik-acc, #f66744) 42%, transparent);
+      background: color-mix(in srgb, var(--magik-dur-acc) 18%, transparent);
+      border: 1px solid color-mix(in srgb, var(--magik-dur-acc) 42%, transparent);
       border-radius: 4px; color: rgba(255,255,255,0.72);
       font-size: 12px; padding: 2px 4px; cursor: pointer; text-align: center; line-height: 1.1;
       white-space: nowrap; overflow: hidden;
     }
-    .magik-duration-chips .magik-chip:hover { background: color-mix(in srgb, var(--magik-acc, #f66744) 32%, transparent); border-color: var(--magik-acc, #f66744); color: #ddd; }
+    .magik-duration-chips .magik-chip:hover { background: color-mix(in srgb, var(--magik-dur-acc) 32%, transparent); border-color: var(--magik-dur-acc); color: #ddd; }
     .magik-duration-chips .magik-chip.magik-active,
     .magik-duration-chips .magik-chip.magik-active:hover {
-      background: var(--magik-acc, #f66744); border-color: var(--magik-acc, #f66744); color: #fff;
+      background: var(--magik-dur-acc); border-color: var(--magik-dur-acc); color: #fff;
     }
     .magik-duration-chips .magik-gear {
       position: absolute; right: 3px; top: 50%; transform: translateY(-50%);
       width: 16px; height: 16px; padding: 0; margin: 0; line-height: 0;
       background: none; border: none; cursor: pointer; color: #bbb;
     }
-    .magik-duration-chips .magik-gear:hover { color: var(--magik-acc, #f66744); }
+    .magik-duration-chips .magik-gear:hover { color: var(--magik-dur-acc); }
     .magik-duration-chips .magik-gear svg { display: block; width: 14px; height: 14px; fill: currentColor; }
     .magik-duration-preview {
-      height: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 5px;
-      padding: 0 2px; font-size: 11px; line-height: 1.2; color: var(--magik-acc, #f66744);
+      height: 100%; box-sizing: border-box; display: block;
+      padding: 0 2px; font-size: 11px; line-height: 16px; color: var(--magik-dur-acc);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
+    .magik-duration-preview span + span { margin-left: 5px; }
     .magik-duration-preview .magik-dim { color: rgba(255,255,255,0.42); }
-    .magik-duration-preview .magik-warn { color: #e8694a; }
     .magik-dur-panel { position: fixed; z-index: 10010; width: 300px; max-width: 94vw; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 10px; box-shadow: 0 18px 50px rgba(0,0,0,0.6); color: #d8d8d8; font: 12px 'Segoe UI', sans-serif; }
     .magik-dur-head { display: flex; align-items: center; padding: 8px 10px; background: #232323; border-bottom: 1px solid #333; }
-    .magik-dur-head b { color: var(--magik-acc, #f66744); font-weight: 600; }
+    .magik-dur-head b { color: var(--magik-dur-acc); font-weight: 600; }
     .magik-dur-x { margin-left: auto; cursor: pointer; color: #8a8a8a; padding: 0 4px; }
     .magik-dur-x:hover { color: #fff; }
     .magik-dur-body { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
     .magik-dur-lab { font-size: 11px; color: #8a8a8a; margin-bottom: 4px; }
     .magik-dur-recipes { display: flex; flex-wrap: wrap; gap: 4px; }
     .magik-dur-recipes button { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14); border-radius: 4px; color: rgba(255,255,255,0.72); font-size: 12px; padding: 4px 8px; cursor: pointer; }
-    .magik-dur-recipes button:hover { border-color: var(--magik-acc, #f66744); color: #ddd; }
-    .magik-dur-recipes button.on { background: var(--magik-acc, #f66744); border-color: var(--magik-acc, #f66744); color: #fff; }
+    .magik-dur-recipes button:hover { border-color: var(--magik-dur-acc); color: #ddd; }
+    .magik-dur-recipes button.on { background: var(--magik-dur-acc); border-color: var(--magik-dur-acc); color: #fff; }
     .magik-dur-rule { height: 1px; background: #333; }
     .magik-dur-chips-input { width: 100%; box-sizing: border-box; background: #1d1d1d; border: 1px solid #444; border-radius: 4px; padding: 6px 8px; color: #e0e0e0; font: 12px monospace; outline: none; }
-    .magik-dur-chips-input:focus { border-color: var(--magik-acc, #f66744); }
+    .magik-dur-chips-input:focus { border-color: var(--magik-dur-acc); }
     .magik-dur-chips-input.bad { border-color: #e8694a; }
   `;
   document.head.appendChild(style);
@@ -199,14 +158,16 @@ function addChipsWidget(node) {
     hideOnZoom: false,
   });
   widget.serializeValue = () => undefined;   // DOM only, never saved in the widget
-  widget.computedHeight = CHIPS_MIN_H;
-  // row sizing read by the frontend's widget grid: minimum only, no maximum,
-  // so this row absorbs all the free space the node has left over
-  element.style.setProperty("--comfy-widget-min-height", CHIPS_MIN_H + "px");
-  // re-fit the grid and labels whenever the row itself is resized (the widget
-  // grid reallocates it when the node is resized in Vue mode)
+  widget.serialize = false;                  // ...and never written to the workflow's widgets_values
+  // The frontend owns this row's height (and writes widget.computedHeight
+  // itself): a 28px minimum and no maximum, so the row absorbs all the free
+  // space the node has left over. Nothing here measures or guesses; the labels
+  // are just re-fitted whenever the row's real size changes.
+  element.style.setProperty("--comfy-widget-min-height", "28px");
   if (typeof ResizeObserver !== "undefined") {
-    new ResizeObserver(() => fitChips(element)).observe(element);
+    node._magikChipsObserver?.disconnect();
+    node._magikChipsObserver = new ResizeObserver(() => fitChips(element));
+    node._magikChipsObserver.observe(element);
   }
 
   const render = () => {
@@ -221,7 +182,7 @@ function addChipsWidget(node) {
       btn.addEventListener("click", (e) => {
         e.preventDefault(); e.stopPropagation();
         setWidgetValue(node, "seconds", chip);
-        syncRecipeFromNumbers(node, chip);
+        syncRecipeFromNumbers(node);
       });
       element.appendChild(btn);
     }
@@ -248,8 +209,6 @@ function addChipsWidget(node) {
 // ── settings panel (gear) ──
 // One panel, two separate sections: a recipe picker and a quick-durations
 // field. Replaces the old combined window.prompt.
-
-const ALL_RECIPES = [...Object.keys(RECIPES), "Custom formula", "Manual"];
 
 let _panel = null;
 let _panelNode = null;
@@ -383,7 +342,7 @@ function openSettingsPanel(node) {
 
   const paintRecipes = () => {
     recipesEl.textContent = "";
-    for (const name of ALL_RECIPES) {
+    for (const name of recipeNames(node)) {
       const b = document.createElement("button");
       b.className = widgetValues(node).recipe === name ? "on" : "";
       b.textContent = name;
@@ -412,8 +371,8 @@ function openSettingsPanel(node) {
   input.addEventListener("keydown", (e) => {
     e.stopPropagation();
     if (e.key === "Enter") {
-      commit();
-      closeSettingsPanel();
+      // stay open on invalid input so the red border is actually seen
+      if (commit()) closeSettingsPanel();
     }
   });
   input.addEventListener("blur", commit);
@@ -436,21 +395,28 @@ function addPreviewWidget(node) {
     hideOnZoom: false,
   });
   widget.serializeValue = () => undefined;
-  widget.computedHeight = 16;
-  // fixed 16px row: min = max, so the grid gives this row exactly its height
-  // and hands the rest of the node to the chips row below it
+  widget.serialize = false;                  // never written to the workflow's widgets_values
+  // fixed 16px row: min = max, so the frontend gives this row exactly its
+  // height and hands the rest of the node to the chips row below it
   element.style.setProperty("--comfy-widget-min-height", "16px");
   element.style.setProperty("--comfy-widget-max-height", "16px");
-  element.style.setProperty("--comfy-widget-height", "16px");
 
   const render = () => {
     const w = widgetValues(node);
-    const { frames, actual } = previewFrames(node);
     const picked = parseFloat(w.seconds);
     const custom =
       w.recipe === "Custom formula" && String(w.formula || "").trim() !== "";
     element.textContent = "";
     const main = document.createElement("span");
+    if (custom) {
+      // a formula is only ever evaluated by Python at run time: no frame count
+      main.textContent = `${fmt(picked)} s → frames set by formula`;
+      element.appendChild(main);
+      return;
+    }
+    const frames = previewFrames(node);
+    const fps = num(w.fps, 24, 0, 1000);
+    const actual = fps > 0 ? frames / fps : 0;
     main.textContent = `${fmt(picked)} s → ${frames} frames`;
     element.appendChild(main);
     if (Math.abs(actual - picked) > 0.005) {
@@ -458,12 +424,6 @@ function addPreviewWidget(node) {
       dim.className = "magik-dim";
       dim.textContent = `(really ${fmt(actual)} s)`;
       element.appendChild(dim);
-    }
-    if (custom) {
-      const warn = document.createElement("span");
-      warn.className = "magik-warn";
-      warn.textContent = "formula is checked by Python at run time";
-      element.appendChild(warn);
     }
   };
   widget.renderPreview = render;
@@ -473,7 +433,7 @@ function addPreviewWidget(node) {
 
 // ── recipe picker ────────────────────────────────────────────────────────────
 
-function syncRecipeFromNumbers(node, newSeconds) {
+function syncRecipeFromNumbers(node) {
   // Selecting a recipe copies its numbers; editing a number by hand flips the
   // recipe to Manual so the recipe value never lies about what will run.
   if (node._magikApplying) return;
@@ -506,31 +466,22 @@ function hideAdvanced(node) {
     formula: advanced,
   };
   for (const name of Object.keys(visible)) {
+    // `hidden` is the frontend's own switch: it drops the row from the layout
+    // and hides a DOM widget's element. The frontend owns type, computedHeight
+    // and display, so none of them is touched here.
     const widget = node.widgets?.find((w) => w.name === name);
-    if (!widget) continue;
-    if (widget._magikOriginalType === undefined) {
-      widget._magikOriginalType = widget.type;
-      widget._magikSavedHeight = widget.computedHeight || 30;
-    }
-    widget.type = visible[name] ? widget._magikOriginalType : "hidden";
-    widget.hidden = !visible[name];
-    widget.computedHeight = visible[name] ? widget._magikSavedHeight : 0;
-    if (widget.element) widget.element.style.display = visible[name] ? "" : "none";
+    if (widget) widget.hidden = !visible[name];
   }
   node.setDirtyCanvas?.(true, true);
   // recalc layout to the new visible widget count; width and height only
   // grow to the minimum, never clamp down a node the user resized, so the
-  // saved size survives reloads and tab switches. In Vue nodes the frontend
-  // manages the node size from the measured DOM, so leave it alone there.
-  if (!isVueNodesMode()) {
-    const min = node.computeSize?.();
-    if (min) {
-      const w = Math.max(node.size?.[0] ?? min[0], min[0]);
-      const h = Math.max(node.size?.[1] ?? min[1], min[1]);
-      node.setSize?.([w, h]);
-    }
+  // saved size survives reloads and tab switches
+  const min = node.computeSize?.();
+  if (min) {
+    const w = Math.max(node.size?.[0] ?? min[0], min[0]);
+    const h = Math.max(node.size?.[1] ?? min[1], min[1]);
+    node.setSize?.([w, h]);
   }
-  stretchChips(node);
 }
 
 // Lay the chips out as a grid of near-square tiles that fills the whole row,
@@ -553,49 +504,18 @@ function fitChips(el) {
   for (const btn of chips) {
     btn.style.fontSize = "";
     const cs = getComputedStyle(btn);
-    const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-    const line = parseFloat(cs.lineHeight) || 1.1;
+    const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+    // computed line-height is in px (e.g. "13.2px"), not the unitless 1.1 from
+    // the CSS, so convert it back to a ratio; "normal" parses to NaN -> 1.1
+    const lhPx = parseFloat(cs.lineHeight);
+    const fsPx = parseFloat(cs.fontSize);
+    const line = Number.isFinite(lhPx) && fsPx > 0 ? lhPx / fsPx : 1.1;
     let fs = Math.max(8, (btn.clientHeight - padY) / line);
     btn.style.fontSize = fs + "px";
     for (let i = 0; i < 4 && btn.scrollWidth > btn.clientWidth && fs > 8; i++) {
       fs = Math.max(8, Math.floor((fs * btn.clientWidth) / btn.scrollWidth));
       btn.style.fontSize = fs + "px";
     }
-  }
-}
-
-// Keep the buttons filling the panel below the readout. In Vue nodes the
-// widget grid allocates the row height from the CSS vars alone, so there we
-// only re-fit the grid/labels (the ResizeObserver does that on row resizes).
-// In classic canvas mode the row height comes from computedHeight, so we
-// stretch it to the node's leftover height there (no DOM-measured feedback
-// loop exists in that mode, so deriving it from node.size is safe).
-function stretchChips(node) {
-  const widgets = node.widgets || [];
-  const chipsIdx = widgets.findIndex((w) => w.name === "magik_duration_chips");
-  if (chipsIdx < 0 || !Array.isArray(node.size)) return;
-  const chips = widgets[chipsIdx];
-  const el = chips.element;
-  if (isVueNodesMode()) {
-    if (el) fitChips(el);
-    return;
-  }
-  let used = node.widgets_start_y ?? 30;
-  for (const w of widgets) {
-    if (w === chips) break;
-    if (w.type === "hidden" || w.hidden) continue;
-    used += w.computedHeight || 30;
-  }
-  for (let i = chipsIdx + 1; i < widgets.length; i++) {
-    if (widgets[i].type === "hidden" || widgets[i].hidden) continue;
-    used += widgets[i].computedHeight || 30;
-  }
-  const h = Math.max(CHIPS_MIN_H, Math.min(Math.round(node.size[1] - used - 4), Math.round(node.size[1])));
-  chips.computedHeight = h;
-  if (el) {
-    el.style.height = h + "px";
-    el.style.setProperty("--comfy-widget-min-height", h + "px");
-    fitChips(el);
   }
 }
 
@@ -628,7 +548,7 @@ function wireWidgets(node) {
       orig?.(value);
       if (["fps", "step", "plus", "min_frames"].includes(name)) {
         // editing a number by hand flips the recipe dropdown to Manual
-        syncRecipeFromNumbers(node, value);
+        syncRecipeFromNumbers(node);
       }
       hideAdvanced(node);
       repaintExtras(node);
@@ -647,11 +567,13 @@ function repaintExtras(node) {
 // callback: one cheap draw hook.
 function patchOnDraw(nodeType) {
   const _draw = nodeType.prototype.onDrawForeground;
-  let last = null;
-  nodeType.prototype.onDrawForeground = function (ctx) {
+  nodeType.prototype.onDrawForeground = function () {
     if (this._magikExtras) {
-      const key = JSON.stringify(widgetValues(this)) + "|" + (this.size?.[0] ?? 0) + "x" + (this.size?.[1] ?? 0);
-      if (key !== last) { last = key; repaintExtras(this); stretchChips(this); }
+      // values only: size changes are handled by the chips row's ResizeObserver,
+      // so resizing the node never rebuilds the buttons. The cache is per node:
+      // a shared one made two nodes invalidate each other every frame.
+      const key = JSON.stringify(widgetValues(this));
+      if (key !== this._magikLastKey) { this._magikLastKey = key; repaintExtras(this); }
     }
     return _draw?.apply(this, arguments);
   };
@@ -689,16 +611,10 @@ app.registerExtension({
       return r;
     };
 
-    const _resize = nodeType.prototype.onResize;
-    nodeType.prototype.onResize = function (size) {
-      const r = _resize?.apply(this, arguments);
-      stretchChips(this);
-      return r;
-    };
-
     const _removed = nodeType.prototype.onRemoved;
     nodeType.prototype.onRemoved = function () {
       if (_panelNode === this) closeSettingsPanel();
+      this._magikChipsObserver?.disconnect();
       return _removed?.apply(this, arguments);
     };
   },
