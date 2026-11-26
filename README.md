@@ -22,8 +22,13 @@ count: they want it to land on a particular pattern.
 | LTX          | 8n + 1     | 24  |
 | Plain frames | no snap    | 24  |
 
-Pick a recipe from the dropdown and the node handles the pattern: **5 seconds
-at 24 fps becomes 124 frames** for MiniMax H3, which is really 5.17 s.
+Pick a recipe and the node handles the pattern: **5 seconds at 24 fps becomes
+124 frames** for MiniMax H3, which is really 5.17 s.
+
+The maths is three steps: `frames = round(seconds x fps)`, raised to the
+model's minimum, then snapped **up** to the next `step x n + plus` (never down,
+and never below `plus`). A clip a few frames long is always safer than one the
+sampler refuses.
 
 ## Outputs
 
@@ -35,38 +40,44 @@ at 24 fps becomes 124 frames** for MiniMax H3, which is really 5.17 s.
 
 ## Modes
 
-- **Recipe**: copies the model's fps/step/plus/min-frames onto the
-  node so a saved workflow never changes retroactively. Pick one from the
-  gear's settings panel on the node (or set the `recipe` widget via API); it is
-  a starting point, not a live link.
+- **Recipe**: picking a recipe in the gear's settings panel copies its
+  fps / step / plus / min-frames onto the node, so a saved workflow never
+  changes retroactively if a recipe is updated later. It is a starting point,
+  not a live link: edit one of the numbers by hand and the node switches to
+  Manual.
 - **Manual**: edit the numbers yourself for a model that is not listed.
 - **Custom formula**: write your own expression, e.g. `(a * fps / 4 + 1) * 4
   + 1`. Uses the same safe evaluator (simpleeval) and function allow-list as
   ComfyUI's Math Expression node; the variables are `a`, `seconds` and `fps`.
-  A broken formula falls back to the numbers on the node instead of failing
-  the run.
+  The result is rounded to a whole number (0 to 1,000,000) and is **not**
+  snapped to any pattern: the formula is in charge. A formula that is empty,
+  longer than 500 characters or fails to evaluate falls back to the numbers on
+  the node instead of failing the run.
 
-## Frontend extras (js/magik_duration.js)
+## On the canvas (js/magik_duration.js)
 
 - Quick duration chips in the style of Pixaroma's Duration node (default
-  3/5/10 s), pinned to the bottom of the node. The readout row is pinned to a
-  minimal 16px and the chips row takes all the remaining height (row sizes are
-  declared through the frontend's --comfy-widget-* vars, so the layout is
-  stable across reloads), laid out as a grid of near-square buttons that fills
-  the node; each label grows to the largest size that still fits inside its own
-  button (height and width). Click the gear (or double-click the chips row) to
-  open a settings panel with two separate sections: a recipe picker and a
-  quick-durations field.
-- A live preview line in the same style: "5 s → 124 frames (really 5.17 s)",
-  with the true length dimmed when snapping changed it.
-- The Python widgets (recipe, seconds, fps, step, plus, min-frames, formula)
-  are hidden on the canvas: the chips set seconds, and the gear's settings
-  panel edits the recipe and the chip list. fps/step/plus/min-frames/formula only appear for
-  Manual or Custom formula, where they must be editable. Hidden widgets still
-  save their values, so nothing changes for scripts or the API.
+  3/5/10 s), laid out as a grid of near-square buttons that fills the bottom of
+  the node. Each label grows to the largest size that still fits inside its own
+  button, and is re-fitted whenever you resize the node. Click the gear (or
+  double-click the chips row) to open a settings panel with two sections: a
+  recipe picker and a quick-durations field (comma-separated seconds; Enter applies it,
+  and an invalid list stays open so you can fix it).
+- A live preview line: "5 s -> 124 frames (really 5.17 s)", with the true length
+  dimmed when snapping changed it. In Custom formula mode it reads "frames set
+  by formula": only Python evaluates a formula, so the browser shows no count
+  that could disagree with the run. The `seconds` output still carries the true
+  length.
+- The recipe and seconds widgets are always hidden on the canvas (the gear and
+  the chips replace them). fps / step / plus / min-frames / formula only appear
+  for Manual or Custom formula, where they must be editable. Hidden widgets
+  still save their values with the workflow.
+- The frontend sizes the rows: the readout is a fixed 16px and the chips row
+  takes all the remaining height, so nothing in the extension measures or
+  guesses layout.
 
-Everything is plain widgets, so workflows driven by scripts or the API work
-with no browser at all.
+The Python side reads the widget values directly, so the numbers on the node
+are always what runs; the browser extras are a convenience layer on top of them.
 
 ## Install
 
@@ -77,7 +88,31 @@ git clone https://github.com/IA-gyz/comfyui-magik-duration.git
 ```
 
 No dependencies. simpleeval is used (like ComfyUI core) when a custom formula
-is set; without it, the custom mode falls back to the recipe numbers.
+is set; without it, Custom formula mode falls back to the numbers on the node.
+
+## Tests
+
+```
+python -m unittest discover -s tests -v
+```
+
+- The browser's frame maths (`js/duration_math.js`) is compared with Python over
+  thousands of inputs, including banker's rounding and out-of-range values
+  (needs `node`; skipped without it).
+- Snapping is checked to always land on the `step x n + plus` grid, never below
+  `plus`.
+- The recipe table in this README and the one in `js/magik_duration.js` are
+  checked against the recipes in `magik_duration.py`, so the three cannot drift.
+
+## Files
+
+| File | Role |
+| ---- | ---- |
+| `magik_duration.py` | The node and the recipes. |
+| `duration_helpers.py` | The frame maths and the formula evaluator (pure, no ComfyUI). |
+| `js/magik_duration.js` | Chips, gear panel and live preview. |
+| `js/duration_math.js` | Browser mirror of the frame maths, for the preview only. |
+| `tests/` | The checks above. |
 
 ## License
 
