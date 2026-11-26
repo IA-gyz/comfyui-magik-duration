@@ -58,8 +58,10 @@ sampler refuses.
 
 - Quick duration chips in the style of Pixaroma's Duration node (default
   3/5/10 s), laid out as a grid of near-square buttons that fills the bottom of
-  the node. Each label grows to the largest size that still fits inside its own
-  button, and is re-fitted whenever you resize the node. Click the gear (or
+  the node. Each button is ringed with an accent-colored outline (a CSS
+  `outline`, which takes up no space, so the grid layout and the row heights
+  are untouched). Each label grows to the largest size that still fits inside
+  its own button, and is re-fitted whenever you resize the node. Click the gear (or
   double-click the chips row) to open a settings panel with two sections: a
   recipe picker and a quick-durations field (comma-separated seconds; Enter applies it,
   and an invalid list stays open so you can fix it).
