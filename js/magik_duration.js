@@ -152,7 +152,7 @@ function injectCSS() {
       display: flex; align-items: center; justify-content: center;
       background: color-mix(in srgb, var(--magik-dur-acc) 18%, transparent);
       border: 1px solid color-mix(in srgb, var(--magik-dur-acc) 42%, transparent);
-      outline: 1px solid color-mix(in srgb, var(--magik-dur-acc) 70%, transparent);
+      outline: 1px solid color-mix(in srgb, #add8e6 70%, transparent);
       border-radius: 4px; color: rgba(255,255,255,0.72);
       font-size: 12px; padding: 2px 4px; cursor: pointer; text-align: center; line-height: 1.1;
       white-space: nowrap; overflow: hidden;
