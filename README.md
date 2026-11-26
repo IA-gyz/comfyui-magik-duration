@@ -90,19 +90,29 @@ git clone https://github.com/IA-gyz/comfyui-magik-duration.git
 No dependencies. simpleeval is used (like ComfyUI core) when a custom formula
 is set; without it, Custom formula mode falls back to the numbers on the node.
 
+## Troubleshooting
+
+**Only the plain widgets show, no chips, gear or preview line.** The extension
+did not load. Restart ComfyUI, hard-refresh the page (Ctrl+Shift+R; browsers
+cache extension scripts), and check the browser console: a failed load names the
+file. The extension is one self-contained file (`js/magik_duration.js`), so a
+missing second file cannot cause this; a stale cached copy can.
+
 ## Tests
 
 ```
 python -m unittest discover -s tests -v
 ```
 
-- The browser's frame maths (`js/duration_math.js`) is compared with Python over
-  thousands of inputs, including banker's rounding and out-of-range values
+- The browser's frame maths (the marked block in `js/magik_duration.js`) is
+  compared with Python over thousands of inputs, including banker's rounding and out-of-range values
   (needs `node`; skipped without it).
 - Snapping is checked to always land on the `step x n + plus` grid, never below
   `plus`.
 - The recipe table in this README and the one in `js/magik_duration.js` are
   checked against the recipes in `magik_duration.py`, so the three cannot drift.
+- The extension must stay a single file with no sibling imports, and both DOM
+  widgets must declare `margin: 0` (see Troubleshooting).
 
 ## Files
 
@@ -110,8 +120,7 @@ python -m unittest discover -s tests -v
 | ---- | ---- |
 | `magik_duration.py` | The node and the recipes. |
 | `duration_helpers.py` | The frame maths and the formula evaluator (pure, no ComfyUI). |
-| `js/magik_duration.js` | Chips, gear panel and live preview. |
-| `js/duration_math.js` | Browser mirror of the frame maths, for the preview only. |
+| `js/magik_duration.js` | Chips, gear panel and live preview (one self-contained file). |
 | `tests/` | The checks above. |
 
 ## License
