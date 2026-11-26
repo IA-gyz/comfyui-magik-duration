@@ -13,11 +13,13 @@
 // The maths here is a mirror of duration_helpers.py: same clamps, same
 // round-half-to-EVEN, same non-negative modulo. Python stays the authority.
 
-// The frame maths lives in duration_math.js (a pure mirror of
-// duration_helpers.py, parity-tested against it). Python stays the authority.
+// Self-contained on purpose: one file, no sibling imports, so a missing or
+// stale second file can never stop the extension from loading. The marked
+// block below mirrors duration_helpers.py for the live preview; Python stays
+// the authority, and tests/test_parity.py extracts that block and compares it
+// with Python over thousands of inputs.
 
 import { app } from "../../scripts/app.js";
-import { num, framesFromSeconds } from "./duration_math.js";
 
 const CLASS = "MagikDuration";
 const STYLE_ID = "magik-duration-style";
@@ -40,6 +42,52 @@ function recipeNames(node) {
 }
 
 const DEFAULT_CHIPS = [3, 5, 10];
+
+// ── frame maths (mirror of duration_helpers.py; extracted by the tests) ──────
+// Same clamps, same round-half-to-EVEN, same non-negative modulo.
+
+const MAX_FPS = 1000;
+const MAX_STEP = 100000;
+const MAX_FRAMES = 1000000;
+const MAX_SECONDS = 100000;
+
+function mod(value, n) { return ((value % n) + n) % n; }
+
+function num(value, fallback, lo, hi) {
+  const out = typeof value === "number" ? value : parseFloat(value);
+  if (!Number.isFinite(out)) return fallback;
+  return Math.max(lo, Math.min(hi, out));
+}
+
+// Python's round() is banker's rounding: round(2.5) is 2, Math.round gives 3.
+function pyRound(value) {
+  const floor = Math.floor(value);
+  const diff = value - floor;
+  if (diff > 0.5) return floor + 1;
+  if (diff < 0.5) return floor;
+  return floor % 2 === 0 ? floor : floor + 1;
+}
+
+function snapFrames(raw, step, plus) {
+  step = Math.trunc(step); plus = Math.trunc(plus); raw = Math.trunc(raw);
+  if (step <= 1) return raw;
+  if (raw < plus) raw = plus;   // the pattern starts at `plus` (n >= 0)
+  const remainder = mod(raw - plus, step);
+  return remainder ? raw + (step - remainder) : raw;
+}
+
+function framesFromSeconds(seconds, fps, step, plus, minFrames) {
+  seconds = num(seconds, 5, -MAX_SECONDS, MAX_SECONDS);
+  fps = num(fps, 24, 0, MAX_FPS);
+  step = Math.trunc(num(step, 17, 0, MAX_STEP));
+  plus = Math.trunc(num(plus, 5, 0, MAX_STEP));
+  minFrames = Math.trunc(num(minFrames, 5, 0, MAX_FRAMES));
+  let raw = pyRound(seconds * fps);
+  if (raw < minFrames) raw = minFrames;
+  raw = snapFrames(raw, step, plus);
+  return Math.max(0, Math.min(MAX_FRAMES, raw));
+}
+// ── end frame maths ──────────────────────────────────────────────────────────
 
 function fmt(value, places = 2) {
   return String(Math.round(value * 10 ** places) / 10 ** places);
@@ -81,7 +129,7 @@ function injectCSS() {
     /* --magik-acc is an optional suite-wide accent; this is its one fallback */
     .magik-duration-chips, .magik-duration-preview, .magik-dur-panel { --magik-dur-acc: var(--magik-acc, #f66744); }
     .magik-duration-chips {
-      position: relative; display: flex; align-items: stretch; gap: 4px; padding: 2px 22px 2px 2px;
+      position: relative; display: flex; align-items: stretch; gap: 4px; padding: 2px 22px 2px 12px;
       flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow: hidden;
       height: 100%; box-sizing: border-box;
     }
@@ -108,7 +156,7 @@ function injectCSS() {
     .magik-duration-chips .magik-gear svg { display: block; width: 14px; height: 14px; fill: currentColor; }
     .magik-duration-preview {
       height: 100%; box-sizing: border-box; display: block;
-      padding: 0 2px; font-size: 11px; line-height: 16px; color: var(--magik-dur-acc);
+      padding: 0 12px; font-size: 11px; line-height: 16px; color: var(--magik-dur-acc);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .magik-duration-preview span + span { margin-left: 5px; }
@@ -156,6 +204,7 @@ function addChipsWidget(node) {
     getValue: () => chipsFor(node).map((v) => ({ type: "duration", value: v })),
     setValue: () => {},
     hideOnZoom: false,
+    margin: 0,   // the frontend draws a DOM widget at (row height - 2 x margin)
   });
   widget.serializeValue = () => undefined;   // DOM only, never saved in the widget
   widget.serialize = false;                  // ...and never written to the workflow's widgets_values
@@ -393,6 +442,7 @@ function addPreviewWidget(node) {
     getValue: () => undefined,
     setValue: () => {},
     hideOnZoom: false,
+    margin: 0,   // 16px row must really be 16px: the default margin would eat 20px
   });
   widget.serializeValue = () => undefined;
   widget.serialize = false;                  // never written to the workflow's widgets_values
@@ -492,8 +542,9 @@ function hideAdvanced(node) {
 function fitChips(el) {
   const chips = [...el.querySelectorAll(".magik-chip")];
   const n = chips.length;
-  const w = el.clientWidth - 24;   // minus the row's horizontal padding
-  const h = el.clientHeight - 4;   // minus the row's vertical padding
+  const box = getComputedStyle(el);
+  const w = el.clientWidth - (parseFloat(box.paddingLeft) || 0) - (parseFloat(box.paddingRight) || 0);
+  const h = el.clientHeight - (parseFloat(box.paddingTop) || 0) - (parseFloat(box.paddingBottom) || 0);
   if (n && w > 20 && h > 20) {
     const cols = Math.max(1, Math.min(n, Math.round(Math.sqrt((n * w) / h))));
     const rows = Math.ceil(n / cols);
