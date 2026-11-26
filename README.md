@@ -74,7 +74,9 @@ sampler refuses.
   still save their values with the workflow.
 - The frontend sizes the rows: the readout is a fixed 16px and the chips row
   takes all the remaining height, so nothing in the extension measures or
-  guesses layout.
+  guesses layout. Both rows keep a margin at least as large as the frontend's
+  resize grab zones (read from `LGraphNode.resizeHandleSize`, 15px), so the
+  bottom corners and the sides stay grabbable.
 
 The Python side reads the widget values directly, so the numbers on the node
 are always what runs; the browser extras are a convenience layer on top of them.
@@ -111,8 +113,8 @@ python -m unittest discover -s tests -v
   `plus`.
 - The recipe table in this README and the one in `js/magik_duration.js` are
   checked against the recipes in `magik_duration.py`, so the three cannot drift.
-- The extension must stay a single file with no sibling imports, and both DOM
-  widgets must declare `margin: 0` (see Troubleshooting).
+- The extension must stay a single file with no sibling imports, and both rows
+  must keep margins that leave the node's resize corners free.
 
 ## Files
 
