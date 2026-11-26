@@ -22,6 +22,20 @@
 import { app } from "../../scripts/app.js";
 
 const CLASS = "MagikDuration";
+
+// The frontend draws DOM widgets in a layer above the canvas and gives every
+// node corner a square resize grab zone (LGraphNode.resizeHandleSize, 15px;
+// resizeEdgeSize, 5px for the sides). A DOM widget's wrapper covers its whole
+// box, so one that reaches into a corner makes it ungrabbable. The box is the
+// row inset by the widget's `margin` on all four sides, and the chips row runs
+// to the very bottom of the node, so its margin must be at least the corner
+// zone. A row's real content height is (row height - 2 x margin), which is why
+// the declared row heights below add the margins back.
+const LG = window.LiteGraph?.LGraphNode;
+const CORNER = Math.ceil(LG?.resizeHandleSize ?? 15);   // chips row margin
+const EDGE = Math.ceil(LG?.resizeEdgeSize ?? 5);        // readout row margin
+const CHIPS_MIN_H = 28;      // content height of the chips row, at least
+const PREVIEW_H = 16;        // content height of the readout row, fixed
 const STYLE_ID = "magik-duration-style";
 
 // Mirror of RECIPES in magik_duration.py. tests/test_parity.py fails if the
@@ -129,7 +143,7 @@ function injectCSS() {
     /* --magik-acc is an optional suite-wide accent; this is its one fallback */
     .magik-duration-chips, .magik-duration-preview, .magik-dur-panel { --magik-dur-acc: var(--magik-acc, #f66744); }
     .magik-duration-chips {
-      position: relative; display: flex; align-items: stretch; gap: 4px; padding: 2px 22px 2px 12px;
+      position: relative; display: flex; align-items: stretch; gap: 4px; padding: 2px 22px 2px 2px;
       flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow: hidden;
       height: 100%; box-sizing: border-box;
     }
@@ -204,7 +218,7 @@ function addChipsWidget(node) {
     getValue: () => chipsFor(node).map((v) => ({ type: "duration", value: v })),
     setValue: () => {},
     hideOnZoom: false,
-    margin: 0,   // the frontend draws a DOM widget at (row height - 2 x margin)
+    margin: CORNER,   // keeps the bottom corners (and the sides) grabbable
   });
   widget.serializeValue = () => undefined;   // DOM only, never saved in the widget
   widget.serialize = false;                  // ...and never written to the workflow's widgets_values
@@ -212,7 +226,7 @@ function addChipsWidget(node) {
   // itself): a 28px minimum and no maximum, so the row absorbs all the free
   // space the node has left over. Nothing here measures or guesses; the labels
   // are just re-fitted whenever the row's real size changes.
-  element.style.setProperty("--comfy-widget-min-height", "28px");
+  element.style.setProperty("--comfy-widget-min-height", `${CHIPS_MIN_H + 2 * CORNER}px`);
   if (typeof ResizeObserver !== "undefined") {
     node._magikChipsObserver?.disconnect();
     node._magikChipsObserver = new ResizeObserver(() => fitChips(element));
@@ -442,14 +456,14 @@ function addPreviewWidget(node) {
     getValue: () => undefined,
     setValue: () => {},
     hideOnZoom: false,
-    margin: 0,   // 16px row must really be 16px: the default margin would eat 20px
+    margin: EDGE,   // keeps the side edges grabbable along this row
   });
   widget.serializeValue = () => undefined;
   widget.serialize = false;                  // never written to the workflow's widgets_values
-  // fixed 16px row: min = max, so the frontend gives this row exactly its
-  // height and hands the rest of the node to the chips row below it
-  element.style.setProperty("--comfy-widget-min-height", "16px");
-  element.style.setProperty("--comfy-widget-max-height", "16px");
+  // fixed row (content height + its margins): min = max, so the frontend gives
+  // this row exactly its height and hands the rest of the node to the chips row
+  element.style.setProperty("--comfy-widget-min-height", `${PREVIEW_H + 2 * EDGE}px`);
+  element.style.setProperty("--comfy-widget-max-height", `${PREVIEW_H + 2 * EDGE}px`);
 
   const render = () => {
     const w = widgetValues(node);
