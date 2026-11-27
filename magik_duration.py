@@ -84,9 +84,19 @@ class MagikDuration:
     def run(self, recipe, seconds, fps, step, plus, min_frames, formula):
         # The recipe widget is a PICKER, not config: choosing one in the browser
         # copies its numbers onto the fps/step/plus/min_frames widgets, which
-        # are the real inputs. A script or API call can therefore set either the
-        # recipe (and the defaults it stands for via the widget values it saved)
-        # or the raw numbers, and both paths agree.
+        # are the real inputs. An API call that sets only `recipe` gets the
+        # widget defaults instead of those copied numbers, so a named recipe is
+        # applied whenever the numbers are still the untouched defaults; any
+        # number that differs (copied by the browser, saved in a workflow, set
+        # by hand) always wins, so a saved workflow never changes retroactively
+        # if a recipe is updated later.
+        r = RECIPES.get(recipe)
+        if r is not None:
+            keys = ("fps", "step", "plus", "min_frames")
+            required = self.INPUT_TYPES()["required"]
+            defaults = tuple(required[k][1]["default"] for k in keys)
+            if (fps, step, plus, min_frames) == defaults:
+                fps, step, plus, min_frames = tuple(r[k] for k in keys)
         if recipe == "Custom formula" and isinstance(formula, str) and formula.strip():
             frames = frames_from_formula(formula, seconds, fps)
             if frames is not None:

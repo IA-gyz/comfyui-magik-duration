@@ -44,7 +44,9 @@ sampler refuses.
   fps / step / plus / min-frames onto the node, so a saved workflow never
   changes retroactively if a recipe is updated later. It is a starting point,
   not a live link: edit one of the numbers by hand and the node switches to
-  Manual.
+  Manual. The same works without a browser: an API prompt that sets only
+  `recipe` gets that recipe's numbers (the node sees the numeric widgets are
+  still at their defaults); any number set explicitly always wins.
 - **Manual**: edit the numbers yourself for a model that is not listed.
 - **Custom formula**: write your own expression, e.g. `(a * fps / 4 + 1) * 4
   + 1`. Uses the same safe evaluator (simpleeval) and function allow-list as
