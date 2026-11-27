@@ -141,7 +141,7 @@ function injectCSS() {
   style.id = STYLE_ID;
   style.textContent = `
     /* --magik-acc is an optional suite-wide accent; this is its one fallback */
-    .magik-duration-chips, .magik-duration-preview, .magik-dur-panel { --magik-dur-acc: var(--magik-acc, #f66744); }
+    .magik-duration-chips, .magik-duration-preview, .magik-duration-slider, .magik-dur-panel { --magik-dur-acc: var(--magik-acc, #f66744); }
     .magik-duration-chips {
       position: relative; display: flex; align-items: stretch; gap: 4px; padding: 2px 22px 2px 2px;
       flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow: hidden;
@@ -176,21 +176,35 @@ function injectCSS() {
     }
     .magik-duration-preview span + span { margin-left: 5px; }
     .magik-duration-preview .magik-dim { color: rgba(255,255,255,0.42); }
-    .magik-dur-panel { position: fixed; z-index: 10010; width: 300px; max-width: 94vw; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 10px; box-shadow: 0 18px 50px rgba(0,0,0,0.6); color: #d8d8d8; font: 12px 'Segoe UI', sans-serif; }
-    .magik-dur-head { display: flex; align-items: center; padding: 8px 10px; background: #232323; border-bottom: 1px solid #333; }
-    .magik-dur-head b { color: var(--magik-dur-acc); font-weight: 600; }
-    .magik-dur-x { margin-left: auto; cursor: pointer; color: #8a8a8a; padding: 0 4px; }
-    .magik-dur-x:hover { color: #fff; }
-    .magik-dur-body { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
-    .magik-dur-lab { font-size: 11px; color: #8a8a8a; margin-bottom: 4px; }
-    .magik-dur-recipes { display: flex; flex-wrap: wrap; gap: 4px; }
-    .magik-dur-recipes button { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14); border-radius: 4px; color: rgba(255,255,255,0.72); font-size: 12px; padding: 4px 8px; cursor: pointer; }
-    .magik-dur-recipes button:hover { border-color: var(--magik-dur-acc); color: #ddd; }
-    .magik-dur-recipes button.on { background: var(--magik-dur-acc); border-color: var(--magik-dur-acc); color: #fff; }
-    .magik-dur-rule { height: 1px; background: #333; }
-    .magik-dur-chips-input { width: 100%; box-sizing: border-box; background: #1d1d1d; border: 1px solid #444; border-radius: 4px; padding: 6px 8px; color: #e0e0e0; font: 12px monospace; outline: none; }
-    .magik-dur-chips-input:focus { border-color: var(--magik-dur-acc); }
-    .magik-dur-chips-input.bad { border-color: #e8694a; }
+    .magik-dur-panel { position: fixed; z-index: 10010; width: 330px; max-width: 94vw; max-height: 82vh; overflow: auto; background: #2b2b2b; border: 1px solid #444; border-radius: 8px; box-shadow: 0 10px 34px rgba(0,0,0,0.55); color: #ddd; font: 12px 'Segoe UI', sans-serif; }
+    .magik-dur-hd { display: flex; align-items: center; gap: 7px; padding: 8px 11px; background: #333; border-bottom: 1px solid #444; cursor: move; user-select: none; }
+    .magik-dur-hd b { font-weight: 500; font-size: 12px; }
+    .magik-dur-hd .magik-dur-x { margin-left: auto; background: none; border: none; color: #999; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
+    .magik-dur-hd .magik-dur-x:hover { color: #fff; }
+    .magik-dur-bd { padding: 11px; display: flex; flex-direction: column; gap: 11px; }
+    .magik-dur-sec { display: flex; flex-direction: column; gap: 6px; }
+    .magik-dur-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--magik-dur-acc); }
+    .magik-dur-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+    .magik-dur-pills.row .magik-dur-pill { flex: 1; }
+    .magik-dur-pill { flex: 1 1 44%; text-align: center; box-sizing: border-box; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14); border-radius: 4px; color: rgba(255,255,255,0.72); font-size: 11px; padding: 5px 4px; cursor: pointer; }
+    .magik-dur-pill:hover { border-color: var(--magik-dur-acc); color: #ddd; }
+    .magik-dur-pill.on, .magik-dur-pill.on:hover { background: var(--magik-dur-acc); border-color: var(--magik-dur-acc); color: #fff; }
+    .magik-dur-panel input[type=text], .magik-dur-panel textarea { box-sizing: border-box; width: 100%; background: #1d1d1d; border: 1px solid #444; border-radius: 4px; color: #e0e0e0; font: 12px monospace; padding: 6px 8px; outline: none; }
+    .magik-dur-panel input[type=text]:focus, .magik-dur-panel textarea:focus { border-color: var(--magik-dur-acc); }
+    .magik-dur-panel input.bad { border-color: #e8694a; }
+    .magik-dur-panel textarea { resize: vertical; min-height: 52px; }
+    .magik-dur-panel input[type=color] { width: 100%; height: 26px; padding: 2px; background: #1d1d1d; border: 1px solid #444; border-radius: 4px; cursor: pointer; }
+    .magik-dur-grid3 { display: flex; gap: 6px; }
+    .magik-dur-fld { flex: 1; min-width: 0; background: #1d1d1d; border: 1px solid #444; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; padding: 4px 7px; gap: 4px; }
+    .magik-dur-fld:focus-within { border-color: var(--magik-dur-acc); }
+    .magik-dur-fld span { font-size: 10px; color: var(--magik-dur-acc); letter-spacing: .3px; }
+    .magik-dur-fld input { width: 52px; background: none; border: none; outline: none; text-align: right; color: var(--magik-dur-acc); font: 12px 'Segoe UI', sans-serif; }
+    .magik-dur-prev { background: rgba(0,0,0,0.25); border-radius: 4px; padding: 7px 9px; font: 11px/1.6 monospace; color: rgba(255,255,255,0.8); max-height: 132px; overflow: auto; }
+    .magik-dur-prev .n { color: var(--magik-dur-acc); }
+    .magik-dur-note { font-size: 11px; color: rgba(255,255,255,0.45); line-height: 1.5; }
+    .magik-duration-slider { height: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; }
+    .magik-duration-slider input[type=range] { flex: 1; accent-color: var(--magik-dur-acc); }
+    .magik-duration-slider b { font: 11px monospace; color: var(--magik-dur-acc); min-width: 48px; text-align: right; }
   `;
   document.head.appendChild(style);
 }
@@ -208,7 +222,7 @@ function setWidgetValue(node, name, value) {
 function chipsFor(node) {
   const list = node.properties?.magik_duration_chips;
   return Array.isArray(list) && list.length
-    ? list.filter((x) => Number.isFinite(parseFloat(x)))
+    ? normalizeChips(list)
     : [...DEFAULT_CHIPS];
 }
 
@@ -269,18 +283,106 @@ function addChipsWidget(node) {
   render();
   return widget;
 }
+function addSliderWidget(node) {
+  const element = document.createElement("div");
+  element.className = "magik-duration-slider";
+  const range = document.createElement("input");
+  range.type = "range";
+  const label = document.createElement("b");
+  element.append(range, label);
+  const widget = node.addDOMWidget("magik_duration_slider", "magik_duration_slider", element, {
+    getValue: () => undefined,
+    setValue: () => {},
+    hideOnZoom: false,
+    margin: CORNER,   // keeps the bottom corners (and the sides) grabbable
+  });
+  widget.serializeValue = () => undefined;
+  widget.serialize = false;
+  element.style.setProperty("--comfy-widget-min-height", `${CHIPS_MIN_H + 2 * CORNER}px`);
+  const render = () => {
+    const chips = chipsFor(node);
+    const hi = Math.max(10, ...chips);
+    range.min = 0;
+    range.max = hi;
+    range.step = 0.1;
+    const s = parseFloat(widgetValues(node).seconds);
+    range.value = Number.isFinite(s) ? Math.min(hi, Math.max(0, s)) : 0;
+    label.textContent = fmt(parseFloat(range.value)) + " s";
+  };
+  range.addEventListener("input", () => {
+    setWidgetValue(node, "seconds", parseFloat(range.value));
+    label.textContent = fmt(parseFloat(range.value)) + " s";
+  });
+  widget.renderSlider = render;
+  render();
+  return widget;
+}
+
 
 // ── settings panel (gear) ──
-// One panel, two separate sections: a recipe picker and a quick-durations
-// field. Replaces the old combined window.prompt.
+// The floating "Duration settings" panel: how you pick, the allowed durations,
+// the recipe (Convert to frames) with its numbers, a live "What it will send"
+// list, and the button colour. Everything it edits lives on the real widgets or
+// node.properties, so saved workflows and API runs see exactly what it shows.
 
 let _panel = null;
 let _panelNode = null;
+let _chipsInput = null;
+
+const PICK_BUTTONS = "buttons";
+const PICK_SLIDER = "slider";
+const PICK_NUMBER = "number";
+const LS_DEFAULT_ACCENT = "magik-duration:default-accent";  // default for new nodes
+const LS_SUITE_ACCENT = "magik:accent";                     // suite-wide --magik-acc
+
+function pickMode(node) {
+  const p = node.properties?.magik_duration_pick;
+  return p === PICK_SLIDER || p === PICK_NUMBER ? p : PICK_BUTTONS;
+}
+
+function accentOf(node) {
+  return node.properties?.magik_duration_accent || null;
+}
+
+function defaultAccent() {
+  try { return localStorage.getItem(LS_DEFAULT_ACCENT); } catch { return null; }
+}
+
+function applyAccent(node) {
+  const acc = accentOf(node) || defaultAccent();
+  for (const name of ["magik_duration_chips", "magik_duration_slider", "magik_duration_preview"]) {
+    const el = node.widgets?.find((w) => w.name === name)?.element;
+    if (!el) continue;
+    if (acc) el.style.setProperty("--magik-dur-acc", acc);
+    else el.style.removeProperty("--magik-dur-acc");
+  }
+  if (_panelNode === node && _panel) {
+    if (acc) _panel.style.setProperty("--magik-dur-acc", acc);
+    else _panel.style.removeProperty("--magik-dur-acc");
+  }
+}
+
+function normalizeChips(list) {
+  const vals = list
+    .map((v) => parseFloat(v))
+    .filter((v) => Number.isFinite(v) && v > 0)
+    .map((v) => Math.round(v * 100) / 100);
+  return [...new Set(vals)].sort((a, b) => a - b).slice(0, 12);
+}
 
 function parseChips(text) {
   return String(text || "").split(",")
     .map((s) => parseFloat(s.trim()))
-    .filter((v) => Number.isFinite(v) && v > 0);
+    .filter((v) => Number.isFinite(v));
+}
+
+// frames the recipe numbers would send for a given length; null in formula mode
+function previewFor(node, seconds) {
+  const w = widgetValues(node);
+  if (w.recipe === "Custom formula" && String(w.formula || "").trim() !== "") return null;
+  const frames = framesFromSeconds(seconds, w.fps, w.step, w.plus, w.min_frames);
+  const fps = num(w.fps, 24, 0, 1000);
+  return { frames, actual: fps > 0 ? frames / fps : 0 };
 }
 
 function outsideClosePanel(e) {
@@ -298,8 +400,10 @@ function escClosePanel(e) {
 }
 
 function closeSettingsPanel() {
-  if (_panel && _panelNode && _panel._chipsInput) {
-    const list = parseChips(_panel._chipsInput.value);
+  // commit a half-typed durations list on close (the outside pointerdown runs
+  // before the input's blur/change would)
+  if (_panel && _panelNode && _chipsInput) {
+    const list = normalizeChips(parseChips(_chipsInput.value));
     if (list.length) {
       _panelNode.properties = _panelNode.properties || {};
       _panelNode.properties.magik_duration_chips = list;
@@ -311,6 +415,7 @@ function closeSettingsPanel() {
   try { _panel?.remove(); } catch {}
   _panel = null;
   _panelNode = null;
+  _chipsInput = null;
 }
 
 function nodeScreenRect(node) {
@@ -350,6 +455,208 @@ function placeBeside(panel, rect) {
   panel.style.top = top + "px";
 }
 
+
+function panelSection(title) {
+  const s = document.createElement("div");
+  s.className = "magik-dur-sec";
+  const l = document.createElement("div");
+  l.className = "magik-dur-lbl";
+  l.textContent = title;
+  s.appendChild(l);
+  return s;
+}
+
+function panelPill(label, on, tip, onClick) {
+  const p = document.createElement("div");
+  p.className = "magik-dur-pill" + (on ? " on" : "");
+  p.textContent = label;
+  if (tip) p.title = tip;
+  p.addEventListener("click", (e) => { e.stopPropagation(); onClick(); });
+  return p;
+}
+
+function panelField(label, value, onChange, tip) {
+  const f = document.createElement("div");
+  f.className = "magik-dur-fld";
+  const s = document.createElement("span");
+  s.textContent = label;
+  const i = document.createElement("input");
+  i.type = "text";
+  i.value = String(value);
+  if (tip) f.title = tip;
+  i.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter") { e.preventDefault(); i.blur(); }
+  });
+  i.addEventListener("change", () => {
+    const v = parseFloat(i.value);
+    if (Number.isFinite(v)) onChange(v);
+  });
+  f.append(s, i);
+  return f;
+}
+
+function fillPanel(bd, node, rebuild) {
+  const changed = () => { hideAdvanced(node); repaintExtras(node); rebuild(); };
+  const w = widgetValues(node);
+
+  // ── How you pick ──
+  const pickSec = panelSection("How you pick");
+  const pickRow = document.createElement("div");
+  pickRow.className = "magik-dur-pills row";
+  const pick = pickMode(node);
+  for (const [mode, label, tip] of [
+    [PICK_BUTTONS, "Buttons", "Show one button per allowed length. Best for a few choices."],
+    [PICK_SLIDER, "Slider", "Drag between the shortest and longest allowed length."],
+    [PICK_NUMBER, "Type it", "Type any length in seconds."],
+  ]) {
+    pickRow.appendChild(panelPill(label, pick === mode, tip, () => {
+      node.properties = node.properties || {};
+      node.properties.magik_duration_pick = mode;
+      const chips = chipsFor(node);
+      const s = parseFloat(w.seconds);
+      if (Number.isFinite(s)) {
+        setWidgetValue(node, "seconds", Math.min(Math.max(...chips), Math.max(mode === PICK_BUTTONS ? Math.min(...chips) : 0, s)));
+      }
+      changed();
+    }));
+  }
+  pickSec.appendChild(pickRow);
+  bd.appendChild(pickSec);
+
+  // ── Allowed durations ──
+  const allowed = panelSection("Allowed durations");
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = chipsFor(node).join(", ");
+  input.title = "The lengths to offer, in seconds, separated by commas";
+  input.spellcheck = false;
+  _chipsInput = input;
+  input.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+  });
+  input.addEventListener("change", () => {
+    const list = normalizeChips(parseChips(input.value));
+    if (!list.length) { input.classList.add("bad"); return; }
+    input.classList.remove("bad");
+    node.properties = node.properties || {};
+    node.properties.magik_duration_chips = list;
+    const s = parseFloat(w.seconds);
+    if (Number.isFinite(s)) setWidgetValue(node, "seconds", Math.min(list[list.length - 1], Math.max(list[0], s)));
+    changed();
+  });
+  allowed.appendChild(input);
+  const note = document.createElement("div");
+  note.className = "magik-dur-note";
+  note.textContent = "Up to 12 lengths. They are sorted for you.";
+  allowed.appendChild(note);
+  bd.appendChild(allowed);
+
+  // ── Convert to frames ──
+  const conv = panelSection("Convert to frames");
+  const recipeRow = document.createElement("div");
+  recipeRow.className = "magik-dur-pills";
+  const current = w.recipe;
+  for (const name of recipeNames(node)) {
+    recipeRow.appendChild(panelPill(name, current === name, undefined, () => {
+      setWidgetValue(node, "recipe", name);
+      applyRecipeNumbers(node, name);
+      changed();
+    }));
+  }
+  conv.appendChild(recipeRow);
+  if (current === "Custom formula") {
+    const ta = document.createElement("textarea");
+    ta.value = String(w.formula || "");
+    ta.placeholder = "max(5, round(a * 24))";
+    ta.title = "a is the length in seconds. fps and seconds are available too.";
+    ta.addEventListener("keydown", (e) => e.stopPropagation());
+    ta.addEventListener("change", () => { setWidgetValue(node, "formula", ta.value); changed(); });
+    conv.appendChild(ta);
+    const fnote = document.createElement("div");
+    fnote.className = "magik-dur-note";
+    fnote.textContent = "a is the length in seconds. You can also use fps. If the formula does not work the node falls back to the numbers on the node.";
+    conv.appendChild(fnote);
+  } else {
+    const row = document.createElement("div");
+    row.className = "magik-dur-grid3";
+    row.append(
+      panelField("FPS", fmt(w.fps), (v) => { setWidgetValue(node, "fps", v); changed(); }, "Frames per second the model runs at"),
+      panelField("STEP", w.step, (v) => { setWidgetValue(node, "step", Math.trunc(v)); changed(); }, "Frame count must land on a multiple of this. 1 means no rounding."),
+      panelField("PLUS", w.plus, (v) => { setWidgetValue(node, "plus", Math.trunc(v)); changed(); }, "Added on top of the multiple: step 17, plus 5 means 22, 39, 56 ..."),
+    );
+    conv.appendChild(row);
+    const row2 = document.createElement("div");
+    row2.className = "magik-dur-grid3";
+    row2.appendChild(panelField("LEAST", w.min_frames, (v) => { setWidgetValue(node, "min_frames", Math.trunc(v)); changed(); }, "Never send fewer frames than this"));
+    conv.appendChild(row2);
+  }
+  bd.appendChild(conv);
+
+  // ── What it will send ──
+  const prevSec = panelSection("What it will send");
+  const box = document.createElement("div");
+  box.className = "magik-dur-prev";
+  const custom = current === "Custom formula" && String(w.formula || "").trim() !== "";
+  for (const v of chipsFor(node)) {
+    const line = document.createElement("div");
+    const secs = document.createElement("span");
+    secs.textContent = String(fmt(v)).padStart(6, " ") + " s  →  ";
+    const n = document.createElement("span");
+    n.className = "n";
+    line.append(secs, n);
+    if (!custom) {
+      const c = previewFor(node, v);
+      n.textContent = c.frames + " frames";
+      if (Math.abs(c.actual - v) > 0.005) {
+        const rn = document.createElement("span");
+        rn.textContent = `  (really ${fmt(c.actual)} s)`;
+        rn.style.color = "rgba(255,255,255,0.4)";
+        line.appendChild(rn);
+      }
+    } else {
+      n.textContent = "frames set by formula";
+    }
+    box.appendChild(line);
+  }
+  prevSec.appendChild(box);
+  bd.appendChild(prevSec);
+
+  // ── Button colour ──
+  const colSec = panelSection("Button colour");
+  const color = document.createElement("input");
+  color.type = "color";
+  color.value = accentOf(node) || defaultAccent() || "#f66744";
+  color.title = "Accent colour for this node's buttons and labels";
+  color.addEventListener("change", () => {
+    node.properties = node.properties || {};
+    node.properties.magik_duration_accent = color.value;
+    applyAccent(node);
+    repaintExtras(node);
+  });
+  colSec.appendChild(color);
+  const cnote = document.createElement("div");
+  cnote.className = "magik-dur-note";
+  cnote.textContent = "This node only. Save it as a default below.";
+  colSec.appendChild(cnote);
+  const defRow = document.createElement("div");
+  defRow.className = "magik-dur-pills row";
+  defRow.append(
+    panelPill("New Duration nodes", false, "Save this colour as the default for new nodes", () => {
+      try { localStorage.setItem(LS_DEFAULT_ACCENT, color.value); } catch {}
+      applyAccent(node);
+    }),
+    panelPill("Every Magik node", false, "Set the suite-wide --magik-acc colour", () => {
+      try { localStorage.setItem(LS_SUITE_ACCENT, color.value); } catch {}
+      document.documentElement.style.setProperty("--magik-acc", color.value);
+      applyAccent(node);
+    }),
+  );
+  colSec.appendChild(defRow);
+  bd.appendChild(colSec);
+}
+
 function openSettingsPanel(node) {
   if (_panelNode === node && _panel?.isConnected) {
     closeSettingsPanel();
@@ -362,95 +669,55 @@ function openSettingsPanel(node) {
   panel.addEventListener("pointerdown", (e) => e.stopPropagation());
 
   const head = document.createElement("div");
-  head.className = "magik-dur-head";
+  head.className = "magik-dur-hd";
   const title = document.createElement("b");
-  title.textContent = "Magik Duration";
-  const x = document.createElement("span");
+  title.textContent = "Duration settings";
+  const x = document.createElement("button");
   x.className = "magik-dur-x";
   x.textContent = "✕";
   x.title = "Close";
-  x.addEventListener("click", (e) => {
-    e.stopPropagation();
-    closeSettingsPanel();
-  });
+  x.addEventListener("click", (e) => { e.stopPropagation(); closeSettingsPanel(); });
   head.append(title, x);
+  // drag by the header
+  head.addEventListener("pointerdown", (e) => {
+    if (e.target === x) return;
+    const sx = e.clientX, sy = e.clientY;
+    const r = panel.getBoundingClientRect();
+    try { head.setPointerCapture(e.pointerId); } catch {}
+    const move = (mv) => {
+      if (!(mv.buttons & 1)) { end(); return; }
+      panel.style.left = `${Math.max(8, Math.min(window.innerWidth - r.width - 8, r.left + mv.clientX - sx))}px`;
+      panel.style.top = `${Math.max(8, Math.min(window.innerHeight - r.height - 8, r.top + mv.clientY - sy))}px`;
+    };
+    const end = () => {
+      head.removeEventListener("pointermove", move);
+      try { head.releasePointerCapture(e.pointerId); } catch {}
+    };
+    head.addEventListener("pointermove", move);
+    head.addEventListener("pointerup", end, { once: true });
+    head.addEventListener("pointercancel", end, { once: true });
+    head.addEventListener("lostpointercapture", end, { once: true });
+  });
 
   const body = document.createElement("div");
-  body.className = "magik-dur-body";
-
-  const recipeSec = document.createElement("div");
-  const recipeLab = document.createElement("div");
-  recipeLab.className = "magik-dur-lab";
-  recipeLab.textContent = "Recipe (copies fps/step/plus/min-frames onto the node)";
-  const recipesEl = document.createElement("div");
-  recipesEl.className = "magik-dur-recipes";
-  recipeSec.append(recipeLab, recipesEl);
-
-  const rule = document.createElement("div");
-  rule.className = "magik-dur-rule";
-
-  const chipsSec = document.createElement("div");
-  const chipsLab = document.createElement("div");
-  chipsLab.className = "magik-dur-lab";
-  chipsLab.textContent = "Quick durations (seconds, comma separated)";
-  const input = document.createElement("input");
-  input.className = "magik-dur-chips-input";
-  input.type = "text";
-  input.value = chipsFor(node).join(", ");
-  input.spellcheck = false;
-  chipsSec.append(chipsLab, input);
-
-  body.append(recipeSec, rule, chipsSec);
+  body.className = "magik-dur-bd";
   panel.append(head, body);
-  panel._chipsInput = input;
 
-  const paintRecipes = () => {
-    recipesEl.textContent = "";
-    for (const name of recipeNames(node)) {
-      const b = document.createElement("button");
-      b.className = widgetValues(node).recipe === name ? "on" : "";
-      b.textContent = name;
-      b.addEventListener("click", (e) => {
-        e.stopPropagation();
-        setWidgetValue(node, "recipe", name);
-        applyRecipeNumbers(node, name);
-        hideAdvanced(node);
-        repaintExtras(node);
-        paintRecipes();
-      });
-      recipesEl.appendChild(b);
-    }
+  const rebuild = () => {
+    const scroll = body.scrollTop;
+    body.textContent = "";
+    fillPanel(body, node, rebuild);
+    body.scrollTop = scroll;
   };
-  paintRecipes();
-
-  const commit = () => {
-    const list = parseChips(input.value);
-    if (!list.length) {
-      input.classList.add("bad");
-      return false;
-    }
-    input.classList.remove("bad");
-    node.properties = node.properties || {};
-    node.properties.magik_duration_chips = list;
-    repaintExtras(node);
-    return true;
-  };
-  input.addEventListener("keydown", (e) => {
-    e.stopPropagation();
-    if (e.key === "Enter") {
-      // stay open on invalid input so the red border is actually seen
-      if (commit()) closeSettingsPanel();
-    }
-  });
-  input.addEventListener("blur", commit);
+  rebuild();
 
   document.body.appendChild(panel);
+  applyAccent(node);
   placeBeside(panel, nodeScreenRect(node));
   _panel = panel;
   _panelNode = node;
   document.addEventListener("pointerdown", outsideClosePanel, true);
   document.addEventListener("keydown", escClosePanel, true);
-  input.focus?.();
 }
 
 function addPreviewWidget(node) {
@@ -519,19 +786,23 @@ function syncRecipeFromNumbers(node) {
 
 function hideAdvanced(node) {
   // The Python widgets stay the source of truth for saved workflows and the
-  // API, but on the canvas the DOM face (chips + gear + readout) replaces
-  // them: recipe and seconds are always hidden, and the raw numbers only show
-  // for Manual / Custom formula, where they must be editable.
+  // API, but on the canvas the DOM face replaces them: the recipe is always
+  // hidden, seconds shows only in "Type it" mode, the chips/slider rows swap
+  // with the pick mode, and the raw numbers only show for Manual / Custom
+  // formula, where they must be editable.
   const recipe = widgetValues(node).recipe;
   const advanced = recipe === "Manual" || recipe === "Custom formula";
+  const pick = pickMode(node);
   const visible = {
     recipe: false,
-    seconds: false,
+    seconds: pick === PICK_NUMBER,
     fps: advanced,
     step: advanced,
     plus: advanced,
     min_frames: advanced,
     formula: advanced,
+    magik_duration_chips: pick === PICK_BUTTONS,
+    magik_duration_slider: pick === PICK_SLIDER,
   };
   for (const name of Object.keys(visible)) {
     // `hidden` is the frontend's own switch: it drops the row from the layout
@@ -540,6 +811,7 @@ function hideAdvanced(node) {
     const widget = node.widgets?.find((w) => w.name === name);
     if (widget) widget.hidden = !visible[name];
   }
+  applyAccent(node);
   node.setDirtyCanvas?.(true, true);
   // recalc layout to the new visible widget count; width and height only
   // grow to the minimum, never clamp down a node the user resized, so the
@@ -638,8 +910,10 @@ function wireWidgets(node) {
 
 function repaintExtras(node) {
   const chips = node.widgets?.find((w) => w.name === "magik_duration_chips");
+  const slider = node.widgets?.find((w) => w.name === "magik_duration_slider");
   const preview = node.widgets?.find((w) => w.name === "magik_duration_preview");
   chips?.renderChips?.();
+  slider?.renderSlider?.();
   preview?.renderPreview?.();
 }
 
@@ -672,6 +946,10 @@ app.registerExtension({
     nodeType.prototype._magikDurationPatched = true;
 
     injectCSS();
+    try {
+      const suite = localStorage.getItem(LS_SUITE_ACCENT);
+      if (suite) document.documentElement.style.setProperty("--magik-acc", suite);
+    } catch {}
     patchOnDraw(nodeType);
 
     const _created = nodeType.prototype.onNodeCreated;
@@ -681,6 +959,7 @@ app.registerExtension({
       this._magikExtras = true;
       addPreviewWidget(this);
       addChipsWidget(this);
+      addSliderWidget(this);
       hideAdvanced(this);
       queueMicrotask(() => { wireWidgets(this); repaintExtras(this); hideAdvanced(this); });
       return r;

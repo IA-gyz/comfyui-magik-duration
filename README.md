@@ -63,17 +63,26 @@ sampler refuses.
   the node. Each button is ringed with a pale-blue outline (a CSS
   `outline`, which takes up no space, so the grid layout and the row heights
   are untouched). Each label grows to the largest size that still fits inside
-  its own button, and is re-fitted whenever you resize the node. Click the gear (or
-  double-click the chips row) to open a settings panel with two sections: a
-  recipe picker and a quick-durations field (comma-separated seconds; Enter applies it,
-  and an invalid list stays open so you can fix it).
+  its own button, and is re-fitted whenever you resize the node.
+- Click the gear (or double-click the chips row) to open the floating
+  **Duration settings** panel (draggable by its header): **How you pick**
+  (Buttons = the chips, Slider = a range across the allowed lengths, Type it =
+  the seconds field), **Allowed durations** (comma-separated seconds; sorted,
+  de-duplicated, up to 12), **Convert to frames** (recipe pills, plus editable
+  FPS / STEP / PLUS / LEAST fields — or a formula box in Custom formula mode),
+  **What it will send** (a live per-length "3 s → 73 frames (really 3.04 s)"
+  list), and **Button colour** (per-node accent, with options to save it as the
+  default for new nodes or suite-wide). Everything the panel edits is written
+  to the real widgets / node properties, so saved workflows and API runs see
+  exactly what the panel shows.
 - A live preview line: "5 s -> 124 frames (really 5.17 s)", with the true length
   dimmed when snapping changed it. In Custom formula mode it reads "frames set
   by formula": only Python evaluates a formula, so the browser shows no count
   that could disagree with the run. The `seconds` output still carries the true
   length.
-- The recipe and seconds widgets are always hidden on the canvas (the gear and
-  the chips replace them). fps / step / plus / min-frames / formula only appear
+- The recipe widget is always hidden on the canvas (the gear panel replaces
+  it); seconds is hidden except in Type-it mode; the chips and slider rows swap
+  with the pick mode. fps / step / plus / min-frames / formula only appear
   for Manual or Custom formula, where they must be editable. Hidden widgets
   still save their values with the workflow.
 - The frontend sizes the rows: the readout is a fixed 16px and the chips row
