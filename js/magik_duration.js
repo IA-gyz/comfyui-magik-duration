@@ -413,6 +413,9 @@ function openSettingsPanel(node) {
       b.addEventListener("click", (e) => {
         e.stopPropagation();
         setWidgetValue(node, "recipe", name);
+        applyRecipeNumbers(node, name);
+        hideAdvanced(node);
+        repaintExtras(node);
         paintRecipes();
       });
       recipesEl.appendChild(b);
@@ -585,6 +588,23 @@ function fitChips(el) {
   }
 }
 
+const WIRED_WIDGETS = ["recipe", "seconds", "fps", "step", "plus", "min_frames", "formula"];
+
+// Copy a recipe's numbers onto the node's widgets. Used both by the wrapped
+// recipe-widget callback (dropdown changes) and directly by the settings-panel
+// buttons, so picking a recipe works even if the callback was never wrapped -
+// e.g. a frontend that adds the input widgets only after onNodeCreated ran.
+function applyRecipeNumbers(node, name) {
+  const r = RECIPES[name];
+  if (!r) return;
+  node._magikApplying = true;
+  setWidgetValue(node, "fps", r.fps);
+  setWidgetValue(node, "step", r.step);
+  setWidgetValue(node, "plus", r.plus);
+  setWidgetValue(node, "min_frames", r.min_frames);
+  node._magikApplying = false;
+}
+
 function wireWidgets(node) {
   const recipeWidget = node.widgets?.find((w) => w.name === "recipe");
   if (recipeWidget && !recipeWidget._magikWired) {
@@ -592,15 +612,7 @@ function wireWidgets(node) {
     const orig = recipeWidget.callback;
     recipeWidget.callback = (value) => {
       orig?.(value);
-      const r = RECIPES[value];
-      if (r) {
-        node._magikApplying = true;
-        setWidgetValue(node, "fps", r.fps);
-        setWidgetValue(node, "step", r.step);
-        setWidgetValue(node, "plus", r.plus);
-        setWidgetValue(node, "min_frames", r.min_frames);
-        node._magikApplying = false;
-      }
+      applyRecipeNumbers(node, value);
       hideAdvanced(node);
       repaintExtras(node);
     };
@@ -620,6 +632,8 @@ function wireWidgets(node) {
       repaintExtras(node);
     };
   }
+  // Idempotent: safe to call again whenever widgets may have appeared late.
+  node._magikWiredDone = WIRED_WIDGETS.every((n) => node.widgets?.find((w) => w.name === n)?._magikWired);
 }
 
 function repaintExtras(node) {
@@ -635,6 +649,9 @@ function patchOnDraw(nodeType) {
   const _draw = nodeType.prototype.onDrawForeground;
   nodeType.prototype.onDrawForeground = function () {
     if (this._magikExtras) {
+      // widgets can appear after onNodeCreated on some frontends; wireWidgets
+      // is idempotent, so retry until every known widget is wrapped
+      if (!this._magikWiredDone) wireWidgets(this);
       // values only: size changes are handled by the chips row's ResizeObserver,
       // so resizing the node never rebuilds the buttons. The cache is per node:
       // a shared one made two nodes invalidate each other every frame.
@@ -665,15 +682,23 @@ app.registerExtension({
       addPreviewWidget(this);
       addChipsWidget(this);
       hideAdvanced(this);
-      queueMicrotask(() => { repaintExtras(this); hideAdvanced(this); });
+      queueMicrotask(() => { wireWidgets(this); repaintExtras(this); hideAdvanced(this); });
+      return r;
+    };
+
+    const _added = nodeType.prototype.onAdded;
+    nodeType.prototype.onAdded = function () {
+      const r = _added?.apply(this, arguments);
+      wireWidgets(this);   // classic canvas adds the input widgets after onNodeCreated
       return r;
     };
 
     const _configured = nodeType.prototype.onConfigure;
     nodeType.prototype.onConfigure = function () {
       const r = _configured?.apply(this, arguments);
+      wireWidgets(this);
       hideAdvanced(this);
-      queueMicrotask(() => { repaintExtras(this); hideAdvanced(this); });
+      queueMicrotask(() => { wireWidgets(this); repaintExtras(this); hideAdvanced(this); });
       return r;
     };
 
